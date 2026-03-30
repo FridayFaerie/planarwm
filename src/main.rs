@@ -5,7 +5,7 @@ use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
 
 use wayland_backend::client::ObjectId;
-use wayland_client::{protocol::wl_registry, Connection, Dispatch, Proxy, QueueHandle};
+use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, protocol::wl_registry};
 
 use crate::river::{
     river_node_v1::RiverNodeV1,
@@ -43,6 +43,7 @@ mod river {
 #[derive(Debug, Clone, Copy)]
 enum Action {
     None,
+    Pan,
     SpawnFoot,
     Close,
     FocusNext,
@@ -54,6 +55,10 @@ enum Action {
 #[derive(Debug, Clone)]
 enum SeatOp {
     None,
+    Pan {
+        start_x: i32,
+        start_y: i32,
+    },
     Move {
         window_proxy: RiverWindowV1,
         start_x: i32,
@@ -81,6 +86,8 @@ struct WindowManager {
     windows: VecDeque<Window>,
     outputs: HashMap<ObjectId, Output>,
     seats: HashMap<ObjectId, Seat>,
+    camera_x: i32,
+    camera_y: i32,
 }
 
 #[derive(Debug)]
@@ -154,6 +161,10 @@ impl WindowManager {
         for seat in &mut self.seats.values_mut() {
             match &seat.op {
                 SeatOp::None => {}
+                SeatOp::Pan { start_x, start_y } => {
+                    self.camera_x = start_x + seat.op_dx;
+                    self.camera_y = start_y + seat.op_dy;
+                }
                 SeatOp::Move {
                     window_proxy,
                     start_x,
@@ -191,6 +202,10 @@ impl WindowManager {
                     }
                 }
             }
+        }
+
+        for window in self.windows.iter_mut() {
+            window.set_node_position(self.camera_x, self.camera_y);
         }
 
         proxy.render_finish();
@@ -254,23 +269,26 @@ impl WindowManager {
 
     fn init_new_seats(&mut self, river_xkb: &RiverXkbBindingsV1, qh: &QueueHandle<AppData>) {
         // See xkbcommon/xkbcommon-keysyms.h
-        const SPACE: u32 = 0x20;
+        const T: u32 = 0x74;
+        // const SPACE: u32 = 0x20;
         const N: u32 = 0x6e;
         const Q: u32 = 0x71;
         const ESC: u32 = 0xff1b;
         // See linux/input-event-codes.h
         const BTN_LEFT: u32 = 0x110;
         const BTN_RIGHT: u32 = 0x111;
+        const BTN_MIDDLE: u32 = 0x112;
         let mods = Modifiers::Mod4;
 
         for seat in self.seats.values_mut() {
             if seat.new {
-                seat.create_xkb_binding(river_xkb, qh, mods, SPACE, Action::SpawnFoot);
+                seat.create_xkb_binding(river_xkb, qh, mods, T, Action::SpawnFoot);
                 seat.create_xkb_binding(river_xkb, qh, mods, Q, Action::Close);
                 seat.create_xkb_binding(river_xkb, qh, mods, N, Action::FocusNext);
                 seat.create_xkb_binding(river_xkb, qh, mods, ESC, Action::Exit);
                 seat.create_pointer_binding(qh, mods, BTN_LEFT, Action::Move);
                 seat.create_pointer_binding(qh, mods, BTN_RIGHT, Action::Resize);
+                seat.create_pointer_binding(qh, Modifiers::None, BTN_MIDDLE, Action::Pan);
                 seat.new = false;
             }
         }
@@ -307,7 +325,7 @@ impl WindowManager {
                 self.windows.push_back(window);
             }
             seat.focus_top(&self.windows);
-            seat.do_action(&mut self.windows, wm_proxy);
+            seat.do_action(&mut self.windows, wm_proxy, self.camera_x, self.camera_y);
             if seat.op_release {
                 seat.op_end();
                 seat.op_release = false;
@@ -337,9 +355,12 @@ impl Window {
     }
 
     fn set_position(&mut self, x: i32, y: i32) {
-        self.node.set_position(x, y);
         self.x = x;
         self.y = y;
+    }
+
+    fn set_node_position(&mut self, camera_x: i32, camera_y: i32) {
+        self.node.set_position(self.x + camera_x, self.y + camera_y);
     }
 }
 
@@ -400,9 +421,18 @@ impl Seat {
         self.pointer_bindings.insert(binding.proxy.id(), binding);
     }
 
-    fn do_action(&mut self, windows: &mut VecDeque<Window>, wm_proxy: &RiverWindowManagerV1) {
+    fn do_action(
+        &mut self,
+        windows: &mut VecDeque<Window>,
+        wm_proxy: &RiverWindowManagerV1,
+        camera_x: i32,
+        camera_y: i32,
+    ) {
         match self.pending_action {
             Action::None => {}
+            Action::Pan => {
+                self.pointer_pan(camera_x, camera_y);
+            }
             // Don't pass WAYLAND_DEBUG on to children, the added noise makes
             // debugging the window manager itself impractical.
             Action::SpawnFoot => match std::process::Command::new("foot")
@@ -455,6 +485,7 @@ impl Seat {
     fn op_manage(&mut self) {
         match &self.op {
             SeatOp::None | SeatOp::Move { .. } => {}
+            SeatOp::Pan { .. } => {}
             SeatOp::Resize {
                 window_proxy,
                 start_width,
@@ -492,6 +523,16 @@ impl Seat {
                 self.focused = None;
             }
         }
+    }
+
+    fn pointer_pan(&mut self, camera_x: i32, camera_y: i32) {
+        self.proxy.op_start_pointer();
+        self.op = SeatOp::Pan {
+            start_x: camera_x,
+            start_y: camera_y,
+        };
+        self.op_dx = 0;
+        self.op_dy = 0;
     }
 
     fn pointer_move(&mut self, window: &Window) {
