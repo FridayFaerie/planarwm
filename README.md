@@ -3,9 +3,9 @@ SPDX-FileCopyrightText: © 2026 Julian Andrews
 SPDX-License-Identifier: 0BSD
 -->
 
-# tinyrwm.rust
+# PlanarWM
 
-Tiny river window manager implemented in Rust.
+River window manager implemented in Rust, based on tinyrwm[https://codeberg.org/river/tinyrwm]
 
 ## Building
 
@@ -16,5 +16,5 @@ cargo build --release
 ## Running
 
 ```
-river -c ./target/release/tinyrwm
+river -c ./target/release/planarwm
 ```

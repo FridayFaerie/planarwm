@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: 0BSD
 
 [package]
-name = "tinyrwm"
+name = "planarwm"
 version = "0.1.0"
 edition = "2024"
 
