@@ -5,7 +5,7 @@ SPDX-License-Identifier: 0BSD
 
 # PlanarWM
 
-River window manager implemented in Rust, based on tinyrwm[https://codeberg.org/river/tinyrwm]
+2D scrolling window manager for the River[https://codeberg.org/river/river] compositor, implemented in Rust, based on tinyrwm[https://codeberg.org/river/tinyrwm].
 
 ## Building
 
