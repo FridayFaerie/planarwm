@@ -54,7 +54,14 @@ mod river {
 enum Action {
     None,
     Pan,
+    Spawn {
+        program: &'static str,
+        args: &'static [&'static str],
+    },
     SpawnFoot,
+    SpawnShell {
+        command: &'static str,
+    },
     Close,
     FocusNext,
     Move,
@@ -297,11 +304,13 @@ impl WindowManager {
 
     fn init_new_seats(&mut self, river_xkb: &RiverXkbBindingsV1, qh: &QueueHandle<AppData>) {
         // See xkbcommon/xkbcommon-keysyms.h
+        const B: u32 = 0x62;
         const T: u32 = 0x74;
-        // const SPACE: u32 = 0x20;
         const N: u32 = 0x6e;
         const Q: u32 = 0x71;
+        const R: u32 = 0x72;
         const ESC: u32 = 0xff1b;
+        const SPACE: u32 = 0x20;
         // See linux/input-event-codes.h
         const BTN_LEFT: u32 = 0x110;
         const BTN_RIGHT: u32 = 0x111;
@@ -311,6 +320,36 @@ impl WindowManager {
         for seat in self.seats.values_mut() {
             if seat.new {
                 seat.create_xkb_binding(river_xkb, qh, mods, T, Action::SpawnFoot);
+                seat.create_xkb_binding(
+                    river_xkb,
+                    qh,
+                    mods,
+                    R,
+                    Action::Spawn {
+                        program: "wmenu-run",
+                        args: &["wmenu-run -bip'(｡•̀ᴗ-)✧'"],
+                    },
+                );
+                seat.create_xkb_binding(
+                    river_xkb,
+                    qh,
+                    mods,
+                    SPACE,
+                    Action::Spawn {
+                        program: "qs",
+                        args: &["ipc", "call", "panel", "toggle"],
+                    },
+                );
+                seat.create_xkb_binding(
+                    river_xkb,
+                    qh,
+                    mods,
+                    B,
+                    Action::Spawn {
+                        program: "firefox",
+                        args: &[],
+                    },
+                );
                 seat.create_xkb_binding(river_xkb, qh, mods, Q, Action::Close);
                 seat.create_xkb_binding(river_xkb, qh, mods, N, Action::FocusNext);
                 seat.create_xkb_binding(river_xkb, qh, mods, ESC, Action::Exit);
@@ -474,6 +513,8 @@ impl Seat {
                 Ok(_) => {}
                 Err(e) => eprintln!("Failed to spawn foot: {e}"),
             },
+            Action::Spawn { program, args } => spawn_app(program, args),
+            Action::SpawnShell { command } => spawn_shell(command),
             Action::Close => {
                 if let Some(window_proxy) = self.focused.as_ref() {
                     window_proxy.close();
@@ -964,5 +1005,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     loop {
         event_queue.blocking_dispatch(&mut app_data)?;
+    }
+}
+
+fn spawn_shell(command: &str) {
+    match std::process::Command::new("sh")
+        .args(["-c", command])
+        .env_remove("WAYLAND_DEBUG")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .spawn()
+    {
+        Ok(_) => {}
+        Err(e) => eprintln!("Failed to run shell command {command:?}: {e}"),
+    }
+}
+
+fn spawn_app(program: &str, args: &[&str]) {
+    match std::process::Command::new(program)
+        .args(args)
+        .env_remove("WAYLAND_DEBUG")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .spawn()
+    {
+        Ok(_) => {}
+        Err(e) => eprintln!("Failed to spawn {program}: {e}"),
     }
 }
