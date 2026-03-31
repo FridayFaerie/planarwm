@@ -8,6 +8,9 @@ use wayland_backend::client::ObjectId;
 use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, protocol::wl_registry};
 
 use crate::river::{
+    river_layer_shell_output_v1::RiverLayerShellOutputV1,
+    river_layer_shell_seat_v1::RiverLayerShellSeatV1,
+    river_layer_shell_v1::RiverLayerShellV1,
     river_node_v1::RiverNodeV1,
     river_output_v1::RiverOutputV1,
     river_pointer_binding_v1::RiverPointerBindingV1,
@@ -32,12 +35,19 @@ mod river {
             use super::rwm::*;
             wayland_scanner::generate_interfaces!("./protocol/river-xkb-bindings-v1.xml");
         }
+
+        pub(super) mod rls {
+            use super::rwm::*;
+            wayland_scanner::generate_interfaces!("./protocol/river-layer-shell-v1.xml");
+        }
     }
 
+    use self::interfaces::rls::*;
     use self::interfaces::rwm::*;
     use self::interfaces::rxkb::*;
     wayland_scanner::generate_client_code!("./protocol/river-window-management-v1.xml");
     wayland_scanner::generate_client_code!("./protocol/river-xkb-bindings-v1.xml");
+    wayland_scanner::generate_client_code!("./protocol/river-layer-shell-v1.xml");
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -50,6 +60,13 @@ enum Action {
     Move,
     Resize,
     Exit,
+}
+
+#[derive(Debug)]
+enum LayerFocus {
+    None,
+    Exclusive,
+    NonExclusive,
 }
 
 #[derive(Debug, Clone)]
@@ -78,6 +95,7 @@ enum SeatOp {
 struct AppData {
     river_wm: Option<RiverWindowManagerV1>,
     river_xkb: Option<RiverXkbBindingsV1>,
+    river_ls: Option<RiverLayerShellV1>,
     wm: WindowManager,
 }
 
@@ -109,6 +127,8 @@ struct Window {
 struct Output {
     proxy: RiverOutputV1,
     removed: bool,
+    layer: Option<RiverLayerShellOutputV1>,
+    usable: Option<(i32, i32, i32, i32)>,
 }
 
 #[derive(Debug)]
@@ -126,6 +146,8 @@ struct Seat {
     op_dx: i32,
     op_dy: i32,
     op_release: bool,
+    layer: Option<RiverLayerShellSeatV1>,
+    layer_focus: LayerFocus,
 }
 
 #[derive(Debug)]
@@ -214,6 +236,9 @@ impl WindowManager {
     fn remove_outputs(&mut self) {
         self.outputs.retain(|_, output| {
             if output.removed {
+                if let Some(layer) = output.layer.take() {
+                    layer.destroy();
+                }
                 output.proxy.destroy();
                 return false;
             }
@@ -246,6 +271,9 @@ impl WindowManager {
     fn remove_seats(&mut self) {
         self.seats.retain(|_, seat| {
             if seat.removed {
+                if let Some(layer) = seat.layer.take() {
+                    layer.destroy();
+                }
                 seat.xkb_bindings
                     .values_mut()
                     .for_each(|binding| binding.proxy.destroy());
@@ -369,6 +397,8 @@ impl Output {
         Self {
             proxy,
             removed: false,
+            layer: None,
+            usable: None,
         }
     }
 }
@@ -389,6 +419,8 @@ impl Seat {
             op_dx: 0,
             op_dy: 0,
             op_release: false,
+            layer: None,
+            layer_focus: LayerFocus::None,
         }
     }
 
@@ -512,6 +544,15 @@ impl Seat {
     }
 
     fn focus_top(&mut self, windows: &VecDeque<Window>) {
+        match self.layer_focus {
+            LayerFocus::Exclusive => {
+                self.proxy.clear_focus();
+                self.focused = None;
+                return;
+            }
+            LayerFocus::NonExclusive => {}
+            LayerFocus::None => {}
+        }
         match windows.back() {
             Some(window) => {
                 self.proxy.focus_window(&window.proxy);
@@ -581,6 +622,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
         {
             const RIVER_WINDOW_MANAGER_V1_VERSION: u32 = 4;
             const RIVER_XKB_BINDINGS_V1_VERSION: u32 = 1;
+            const RIVER_LAYER_SHELL_V1_VERSION: u32 = 1;
             match interface.as_str() {
                 "river_window_manager_v1" => {
                     if version < RIVER_WINDOW_MANAGER_V1_VERSION {
@@ -611,6 +653,21 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
                         (),
                     );
                     state.river_xkb = Some(xkb);
+                }
+                "river_layer_shell_v1" => {
+                    if version < RIVER_LAYER_SHELL_V1_VERSION {
+                        eprintln!(
+                            "Server supports river_layer_shell_v1 v{version}, but we need at least v{RIVER_LAYER_SHELL_V1_VERSION}"
+                        );
+                        std::process::exit(1);
+                    }
+                    let layer_shell = registry.bind::<RiverLayerShellV1, _, _>(
+                        name,
+                        RIVER_LAYER_SHELL_V1_VERSION,
+                        qh,
+                        (),
+                    );
+                    state.river_ls = Some(layer_shell);
                 }
                 _ => {}
             }
@@ -646,10 +703,19 @@ impl Dispatch<RiverWindowManagerV1, ()> for AppData {
             Event::SessionUnlocked => {}
             Event::Window { id } => state.wm.windows.push_back(Window::new(id, qh)),
             Event::Output { id } => {
-                state.wm.outputs.insert(id.id(), Output::new(id));
+                let mut output = Output::new(id.clone());
+                if let Some(layer_shell) = &state.river_ls {
+                    output.layer =
+                        Some(layer_shell.get_output(&output.proxy, qh, output.proxy.id()))
+                }
+                state.wm.outputs.insert(id.id(), output);
             }
             Event::Seat { id } => {
-                state.wm.seats.insert(id.id(), Seat::new(id));
+                let mut seat = Seat::new(id.clone());
+                if let Some(layer_shell) = &state.river_ls {
+                    seat.layer = Some(layer_shell.get_seat(&seat.proxy, qh, seat.proxy.id()))
+                }
+                state.wm.seats.insert(id.id(), seat);
             }
         }
     }
@@ -708,6 +774,18 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
     }
 }
 
+impl Dispatch<RiverLayerShellV1, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &RiverLayerShellV1,
+        _event: <RiverLayerShellV1 as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+    }
+}
+
 impl Dispatch<RiverOutputV1, ()> for AppData {
     fn event(
         state: &mut Self,
@@ -731,6 +809,32 @@ impl Dispatch<RiverOutputV1, ()> for AppData {
                 width: _,
                 height: _,
             } => {}
+        }
+    }
+}
+
+impl Dispatch<RiverLayerShellOutputV1, ObjectId> for AppData {
+    fn event(
+        state: &mut Self,
+        _proxy: &RiverLayerShellOutputV1,
+        event: <RiverLayerShellOutputV1 as Proxy>::Event,
+        data: &ObjectId,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        use river::river_layer_shell_output_v1::Event;
+        let output = state
+            .wm
+            .outputs
+            .get_mut(data)
+            .expect("Output {proxy.id()} not found");
+        match event {
+            Event::NonExclusiveArea {
+                x,
+                y,
+                width,
+                height,
+            } => output.usable = Some((x, y, width, height)),
         }
     }
 }
@@ -762,6 +866,29 @@ impl Dispatch<RiverSeatV1, ()> for AppData {
             Event::OpDelta { dx, dy } => (seat.op_dx, seat.op_dy) = (dx, dy),
             Event::OpRelease => seat.op_release = true,
             Event::PointerPosition { x: _, y: _ } => {}
+        }
+    }
+}
+
+impl Dispatch<RiverLayerShellSeatV1, ObjectId> for AppData {
+    fn event(
+        state: &mut Self,
+        _proxy: &RiverLayerShellSeatV1,
+        event: <RiverLayerShellSeatV1 as Proxy>::Event,
+        data: &ObjectId,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        use river::river_layer_shell_seat_v1::Event;
+        let seat = state
+            .wm
+            .seats
+            .get_mut(data)
+            .expect("Seat {proxy.id()} not found");
+        match event {
+            Event::FocusExclusive => seat.layer_focus = LayerFocus::Exclusive,
+            Event::FocusNonExclusive => seat.layer_focus = LayerFocus::NonExclusive,
+            Event::FocusNone => seat.layer_focus = LayerFocus::None,
         }
     }
 }
