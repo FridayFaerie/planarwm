@@ -8,6 +8,8 @@ edition = "2024"
 
 [dependencies]
 bitflags = "2.11.0"
+hocon = "0.9.0"
+serde = {version = "1.0.228", features = ["derive"]}
 wayland-backend = "0.3.14"
 wayland-client = "0.31.13"
 wayland-scanner = "0.31.9"

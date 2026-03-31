@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: © 2026 Julian Andrews
 // SPDX-License-Identifier: 0BSD
 
+use serde::Deserialize;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
+use std::path::PathBuf;
 
 use wayland_backend::client::ObjectId;
 use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, protocol::wl_registry};
@@ -50,18 +52,17 @@ mod river {
     wayland_scanner::generate_client_code!("./protocol/river-layer-shell-v1.xml");
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Deserialize, Default)]
+struct Config {
+    #[serde(default)]
+    bindings: HashMap<String, HashMap<String, String>>,
+}
+
+#[derive(Debug, Clone)]
 enum Action {
     None,
     Pan,
-    Spawn {
-        program: &'static str,
-        args: &'static [&'static str],
-    },
-    SpawnFoot,
-    SpawnShell {
-        command: &'static str,
-    },
+    Spawn { program: String, args: Vec<String> },
     Close,
     FocusNext,
     Move,
@@ -100,6 +101,7 @@ enum SeatOp {
 
 #[derive(Debug, Default)]
 struct AppData {
+    config: Config,
     river_wm: Option<RiverWindowManagerV1>,
     river_xkb: Option<RiverXkbBindingsV1>,
     river_ls: Option<RiverLayerShellV1>,
@@ -175,12 +177,13 @@ impl WindowManager {
         proxy: &RiverWindowManagerV1,
         river_xkb: &RiverXkbBindingsV1,
         qh: &QueueHandle<AppData>,
+        config: &Config,
     ) {
         self.remove_outputs();
         self.remove_windows();
         self.remove_seats();
         self.init_new_windows();
-        self.init_new_seats(river_xkb, qh);
+        self.init_new_seats(river_xkb, qh, config);
         self.manage_windows();
         self.manage_seats(proxy);
         proxy.manage_finish();
@@ -302,62 +305,42 @@ impl WindowManager {
         }
     }
 
-    fn init_new_seats(&mut self, river_xkb: &RiverXkbBindingsV1, qh: &QueueHandle<AppData>) {
-        // See xkbcommon/xkbcommon-keysyms.h
-        const B: u32 = 0x62;
-        const T: u32 = 0x74;
-        const N: u32 = 0x6e;
-        const Q: u32 = 0x71;
-        const R: u32 = 0x72;
-        const ESC: u32 = 0xff1b;
-        const SPACE: u32 = 0x20;
-        // See linux/input-event-codes.h
-        const BTN_LEFT: u32 = 0x110;
-        const BTN_RIGHT: u32 = 0x111;
-        const BTN_MIDDLE: u32 = 0x112;
-        let mods = Modifiers::Mod4;
+    fn init_new_seats(
+        &mut self,
+        river_xkb: &RiverXkbBindingsV1,
+        qh: &QueueHandle<AppData>,
+        config: &Config,
+    ) {
+        for seat in self.seats.values_mut().filter(|seat| seat.new) {
+            for (mods_name, keymap) in &config.bindings {
+                let Some(mods) = parse_modifiers(mods_name) else {
+                    eprintln!("Unknown modifier group: {mods_name}");
+                    continue;
+                };
 
-        for seat in self.seats.values_mut() {
-            if seat.new {
-                seat.create_xkb_binding(river_xkb, qh, mods, T, Action::SpawnFoot);
-                seat.create_xkb_binding(
-                    river_xkb,
-                    qh,
-                    mods,
-                    R,
-                    Action::Spawn {
-                        program: "wmenu-run",
-                        args: &["wmenu-run -bip'(｡•̀ᴗ-)✧'"],
-                    },
-                );
-                seat.create_xkb_binding(
-                    river_xkb,
-                    qh,
-                    mods,
-                    SPACE,
-                    Action::Spawn {
-                        program: "qs",
-                        args: &["ipc", "call", "panel", "toggle"],
-                    },
-                );
-                seat.create_xkb_binding(
-                    river_xkb,
-                    qh,
-                    mods,
-                    B,
-                    Action::Spawn {
-                        program: "firefox",
-                        args: &[],
-                    },
-                );
-                seat.create_xkb_binding(river_xkb, qh, mods, Q, Action::Close);
-                seat.create_xkb_binding(river_xkb, qh, mods, N, Action::FocusNext);
-                seat.create_xkb_binding(river_xkb, qh, mods, ESC, Action::Exit);
-                seat.create_pointer_binding(qh, mods, BTN_LEFT, Action::Move);
-                seat.create_pointer_binding(qh, mods, BTN_RIGHT, Action::Resize);
-                seat.create_pointer_binding(qh, Modifiers::None, BTN_MIDDLE, Action::Pan);
-                seat.new = false;
+                for (key_name, action_text) in keymap {
+                    let Some(keysym) = parse_keysym(key_name) else {
+                        eprintln!("Unknown key: {key_name}");
+                        continue;
+                    };
+                    let Some(action) = parse_action(action_text) else {
+                        eprintln!("Unknown action: {action_text}");
+                        continue;
+                    };
+
+                    seat.create_xkb_binding(river_xkb, qh, mods, keysym, action);
+                }
             }
+
+            const BTN_LEFT: u32 = 0x110;
+            const BTN_RIGHT: u32 = 0x111;
+            const BTN_MIDDLE: u32 = 0x112;
+            let mods = Modifiers::Mod1;
+            seat.create_pointer_binding(qh, mods, BTN_LEFT, Action::Move);
+            seat.create_pointer_binding(qh, mods, BTN_RIGHT, Action::Resize);
+            seat.create_pointer_binding(qh, Modifiers::None, BTN_MIDDLE, Action::Pan);
+
+            seat.new = false;
         }
     }
 
@@ -499,22 +482,17 @@ impl Seat {
         camera_x: i32,
         camera_y: i32,
     ) {
-        match self.pending_action {
+        match &self.pending_action {
             Action::None => {}
             Action::Pan => {
                 self.pointer_pan(camera_x, camera_y);
             }
             // Don't pass WAYLAND_DEBUG on to children, the added noise makes
             // debugging the window manager itself impractical.
-            Action::SpawnFoot => match std::process::Command::new("foot")
-                .env_remove("WAYLAND_DEBUG")
-                .spawn()
-            {
-                Ok(_) => {}
-                Err(e) => eprintln!("Failed to spawn foot: {e}"),
-            },
-            Action::Spawn { program, args } => spawn_app(program, args),
-            Action::SpawnShell { command } => spawn_shell(command),
+            Action::Spawn { program, args } => {
+                let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+                spawn_program(&program, &arg_refs)
+            }
             Action::Close => {
                 if let Some(window_proxy) = self.focused.as_ref() {
                     window_proxy.close();
@@ -737,7 +715,8 @@ impl Dispatch<RiverWindowManagerV1, ()> for AppData {
                     .river_xkb
                     .as_ref()
                     .expect("river_xkb_bindings_v1 missing");
-                state.wm.handle_manage_start(proxy, river_xkb, qh)
+                let config = state.config.clone();
+                state.wm.handle_manage_start(proxy, river_xkb, qh, &config)
             }
             Event::RenderStart => state.wm.handle_render_start(proxy),
             Event::SessionLocked => {}
@@ -950,7 +929,7 @@ impl Dispatch<RiverXkbBindingV1, ObjectId> for AppData {
             .get(&proxy.id())
             .expect("xkb_binding {proxy.id()} not found");
         match event {
-            Event::Pressed => seat.pending_action = binding.action,
+            Event::Pressed => seat.pending_action = binding.action.clone(),
             Event::Released => {}
             Event::StopRepeat => {}
         }
@@ -973,7 +952,7 @@ impl Dispatch<RiverPointerBindingV1, ObjectId> for AppData {
             .get(&proxy.id())
             .expect("xkb_binding {proxy.id()} not found");
         match event {
-            Event::Pressed => seat.pending_action = binding.action,
+            Event::Pressed => seat.pending_action = binding.action.clone(),
             Event::Released => {}
         }
     }
@@ -990,7 +969,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _registry = display.get_registry(&event_queue.handle(), ());
 
     // Initial state
-    let mut app_data = AppData::default();
+    let mut app_data = AppData {
+        config: load_config(),
+        ..Default::default()
+    };
 
     // Roundtrip to process the get_registry event and bind interfaces.
     event_queue.roundtrip(&mut app_data)?;
@@ -1008,21 +990,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-fn spawn_shell(command: &str) {
-    match std::process::Command::new("sh")
-        .args(["-c", command])
-        .env_remove("WAYLAND_DEBUG")
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .spawn()
-    {
-        Ok(_) => {}
-        Err(e) => eprintln!("Failed to run shell command {command:?}: {e}"),
-    }
-}
-
-fn spawn_app(program: &str, args: &[&str]) {
+fn spawn_program(program: &str, args: &[&str]) {
     match std::process::Command::new(program)
         .args(args)
         .env_remove("WAYLAND_DEBUG")
@@ -1033,5 +1001,76 @@ fn spawn_app(program: &str, args: &[&str]) {
     {
         Ok(_) => {}
         Err(e) => eprintln!("Failed to spawn {program}: {e}"),
+    }
+}
+
+fn config_path() -> PathBuf {
+    let home = std::env::var_os("HOME").unwrap_or_else(|| ".".into());
+    PathBuf::from(home)
+        .join(".config")
+        .join("river")
+        .join("planarwm.hocon")
+}
+
+fn load_config() -> Config {
+    let path = config_path();
+
+    if !path.exists() {
+        return Config::default();
+    }
+
+    match hocon::HoconLoader::new().load_file(path.to_string_lossy().as_ref()) {
+        Ok(loader) => match loader.resolve() {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                eprintln!("Failed to parse config: {e}");
+                Config::default()
+            }
+        },
+        Err(e) => {
+            eprintln!("Failed to read config: {e}");
+            Config::default()
+        }
+    }
+}
+
+fn parse_modifiers(s: &str) -> Option<Modifiers> {
+    match s.to_ascii_lowercase().as_str() {
+        "none" => Some(Modifiers::None),
+        "super" => Some(Modifiers::Mod4),
+        "alt" => Some(Modifiers::Mod1),
+        _ => None,
+    }
+}
+
+fn parse_keysym(s: &str) -> Option<u32> {
+    let s = s.trim().to_ascii_lowercase();
+    match s.as_str() {
+        "escape" => Some(0xff1b),
+        "space" => Some(0x20),
+        "grave" => Some(0x60),
+        _ if s.len() == 1 => Some(s.as_bytes()[0] as u32),
+        _ => None,
+    }
+}
+
+fn parse_action(spec: &str) -> Option<Action> {
+    let spec = spec.trim();
+
+    match spec {
+        "close" => Some(Action::Close),
+        "focus_next" => Some(Action::FocusNext),
+        "move" => Some(Action::Move),
+        "resize" => Some(Action::Resize),
+        "pan" => Some(Action::Pan),
+        "exit" => Some(Action::Exit),
+        _ if spec.starts_with("spawn ") => {
+            let rest = &spec["spawn ".len()..];
+            let mut parts = rest.split_whitespace();
+            let program = parts.next()?.to_string();
+            let args = parts.map(|s| s.to_string()).collect();
+            Some(Action::Spawn { program, args })
+        }
+        _ => None,
     }
 }
