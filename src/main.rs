@@ -64,6 +64,7 @@ struct Config {
 enum Action {
     None,
     Pan,
+    View { x: i32, y: i32 },
     Spawn { program: String, args: Vec<String> },
     SpawnShell { command: String },
     Close,
@@ -384,18 +385,21 @@ impl WindowManager {
     }
 
     fn manage_seats(&mut self, wm_proxy: &RiverWindowManagerV1) {
+        let windows = &mut self.windows;
+        let camera_x = &mut self.camera_x;
+        let camera_y = &mut self.camera_y;
+
         for seat in self.seats.values_mut() {
             if let Some(window_proxy) = seat.interacted.take() {
-                let i = self
-                    .windows
+                let i = windows
                     .iter()
                     .position(|window| window.proxy == window_proxy)
                     .expect("Interacted window {window.proxy.id()} not found");
-                let window = self.windows.remove(i).unwrap();
-                self.windows.push_back(window);
+                let window = windows.remove(i).unwrap();
+                windows.push_back(window);
             }
-            seat.focus_top(&self.windows);
-            seat.do_action(&mut self.windows, wm_proxy, self.camera_x, self.camera_y);
+            seat.focus_top(windows);
+            seat.do_action(windows, wm_proxy, camera_x, camera_y);
             if seat.op_release {
                 seat.op_end();
                 seat.op_release = false;
@@ -500,13 +504,17 @@ impl Seat {
         &mut self,
         windows: &mut VecDeque<Window>,
         wm_proxy: &RiverWindowManagerV1,
-        camera_x: i32,
-        camera_y: i32,
+        camera_x: &mut i32,
+        camera_y: &mut i32,
     ) {
         match &self.pending_action {
             Action::None => {}
             Action::Pan => {
-                self.pointer_pan(camera_x, camera_y);
+                self.pointer_pan(*camera_x, *camera_y);
+            }
+            Action::View { x, y } => {
+                *camera_x = *x;
+                *camera_y = *y;
             }
             Action::Spawn { program, args } => {
                 let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -1124,6 +1132,12 @@ fn parse_action(spec: &str) -> Option<Action> {
         _ if spec.starts_with("shell ") => {
             let command = spec["shell ".len()..].trim().to_string();
             Some(Action::SpawnShell { command })
+        }
+        _ if spec.starts_with("view ") => {
+            let mut parts = spec["view ".len()..].split_whitespace();
+            let x = parts.next()?.parse().ok()?;
+            let y = parts.next()?.parse().ok()?;
+            Some(Action::View { x, y })
         }
         _ => None,
     }
