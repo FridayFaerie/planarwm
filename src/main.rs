@@ -56,6 +56,8 @@ mod river {
 struct Config {
     #[serde(default)]
     bindings: HashMap<String, HashMap<String, String>>,
+    #[serde(default)]
+    startup: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -63,6 +65,7 @@ enum Action {
     None,
     Pan,
     Spawn { program: String, args: Vec<String> },
+    SpawnShell { command: String },
     Close,
     FocusNext,
     Move,
@@ -505,12 +508,11 @@ impl Seat {
             Action::Pan => {
                 self.pointer_pan(camera_x, camera_y);
             }
-            // Don't pass WAYLAND_DEBUG on to children, the added noise makes
-            // debugging the window manager itself impractical.
             Action::Spawn { program, args } => {
                 let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
                 spawn_program(&program, &arg_refs)
             }
+            Action::SpawnShell { command } => spawn_shell(&command),
             Action::Close => {
                 if let Some(window_proxy) = self.focused.as_ref() {
                     window_proxy.close();
@@ -997,9 +999,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut event_queue = conn.new_event_queue();
     let _registry = display.get_registry(&event_queue.handle(), ());
 
+    let config = load_config();
     // Initial state
     let mut app_data = AppData {
-        config: load_config(),
+        config: config.clone(),
         ..Default::default()
     };
 
@@ -1014,6 +1017,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
+    run_startup_programs(&config.startup);
+
     loop {
         event_queue.blocking_dispatch(&mut app_data)?;
     }
@@ -1022,6 +1027,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn spawn_program(program: &str, args: &[&str]) {
     match std::process::Command::new(program)
         .args(args)
+        // Don't pass WAYLAND_DEBUG on to children, the added noise makes
+        // debugging the window manager itself impractical.
         .env_remove("WAYLAND_DEBUG")
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::inherit())
@@ -1030,6 +1037,20 @@ fn spawn_program(program: &str, args: &[&str]) {
     {
         Ok(_) => {}
         Err(e) => eprintln!("Failed to spawn {program}: {e}"),
+    }
+}
+
+fn spawn_shell(command: &str) {
+    match std::process::Command::new("sh")
+        .args(["-c", command])
+        .env_remove("WAYLAND_DEBUG")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .spawn()
+    {
+        Ok(_) => {}
+        Err(e) => eprintln!("Failed to run shell command {command:?}: {e}"),
     }
 }
 
@@ -1100,6 +1121,16 @@ fn parse_action(spec: &str) -> Option<Action> {
             let args = parts.map(|s| s.to_string()).collect();
             Some(Action::Spawn { program, args })
         }
+        _ if spec.starts_with("shell ") => {
+            let command = spec["shell ".len()..].trim().to_string();
+            Some(Action::SpawnShell { command })
+        }
         _ => None,
+    }
+}
+
+fn run_startup_programs(programs: &[String]) {
+    for program in programs {
+        spawn_shell(program)
     }
 }
