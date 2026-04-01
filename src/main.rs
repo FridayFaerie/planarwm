@@ -71,6 +71,7 @@ enum Action {
     FocusNext,
     Move,
     Resize,
+    Fullscreen,
     Exit,
 }
 
@@ -142,6 +143,8 @@ struct Output {
     proxy: RiverOutputV1,
     removed: bool,
     layer: Option<RiverLayerShellOutputV1>,
+    position: Option<(i32, i32)>,
+    dimensions: Option<(i32, i32)>,
     usable: Option<(i32, i32, i32, i32)>,
 }
 
@@ -399,7 +402,7 @@ impl WindowManager {
                 windows.push_back(window);
             }
             seat.focus_top(windows);
-            seat.do_action(windows, wm_proxy, camera_x, camera_y);
+            seat.do_action(windows, &self.outputs, wm_proxy, camera_x, camera_y);
             if seat.op_release {
                 seat.op_end();
                 seat.op_release = false;
@@ -445,6 +448,8 @@ impl Output {
             proxy,
             removed: false,
             layer: None,
+            position: None,
+            dimensions: None,
             usable: None,
         }
     }
@@ -503,6 +508,7 @@ impl Seat {
     fn do_action(
         &mut self,
         windows: &mut VecDeque<Window>,
+        outputs: &HashMap<ObjectId, Output>,
         wm_proxy: &RiverWindowManagerV1,
         camera_x: &mut i32,
         camera_y: &mut i32,
@@ -546,6 +552,15 @@ impl Seat {
                         .find(|window| &window.proxy == window_proxy)
                         .expect("Hovered window {window.proxy.id()} not found");
                     self.pointer_resize(window, Edges::Bottom.union(Edges::Right));
+                }
+            }
+            Action::Fullscreen => {
+                if let Some(window_proxy) = self.focused.as_ref() {
+                    let window = windows
+                        .iter_mut()
+                        .find(|window| &window.proxy == window_proxy)
+                        .expect("Focused window {window.proxy.id()} not found");
+                    self.make_fullscreen(window, outputs, (*camera_x, *camera_y));
                 }
             }
             Action::Exit => wm_proxy.exit_session(),
@@ -649,6 +664,25 @@ impl Seat {
         };
         self.op_dx = 0;
         self.op_dy = 0;
+    }
+
+    fn make_fullscreen(
+        &self,
+        window: &mut Window,
+        outputs: &HashMap<ObjectId, Output>,
+        (camera_x, camera_y): (i32, i32),
+    ) {
+        let Some((x, y, width, height)) = outputs.values().find_map(|output| {
+            let (width, height) = output.dimensions?;
+            Some((camera_x, camera_y, width, height))
+        }) else {
+            return;
+        };
+
+        window.set_position(x, y);
+        window.width = width;
+        window.height = height;
+        window.proxy.propose_dimensions(width, height);
     }
 }
 
@@ -863,11 +897,10 @@ impl Dispatch<RiverOutputV1, ()> for AppData {
         match event {
             Event::Removed => output.removed = true,
             Event::WlOutput { name: _ } => {}
-            Event::Position { x: _, y: _ } => {}
-            Event::Dimensions {
-                width: _,
-                height: _,
-            } => {}
+            Event::Position { x, y } => output.position = Some((x, y)),
+            Event::Dimensions { width, height } => {
+                output.dimensions = Some((width, height));
+            }
         }
     }
 }
@@ -1107,6 +1140,7 @@ fn parse_keysym(s: &str) -> Option<u32> {
         "escape" => Some(0xff1b),
         "space" => Some(0x20),
         "grave" => Some(0x60),
+        "print" => Some(0xff61),
         _ if s.len() == 1 => Some(s.as_bytes()[0] as u32),
         _ => None,
     }
@@ -1116,11 +1150,12 @@ fn parse_action(spec: &str) -> Option<Action> {
     let spec = spec.trim();
 
     match spec {
+        "pan" => Some(Action::Pan),
         "close" => Some(Action::Close),
         "focus_next" => Some(Action::FocusNext),
         "move" => Some(Action::Move),
         "resize" => Some(Action::Resize),
-        "pan" => Some(Action::Pan),
+        "fullscreen" => Some(Action::Fullscreen),
         "exit" => Some(Action::Exit),
         _ if spec.starts_with("spawn ") => {
             let rest = &spec["spawn ".len()..];
