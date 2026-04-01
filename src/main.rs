@@ -194,8 +194,8 @@ impl WindowManager {
             match &seat.op {
                 SeatOp::None => {}
                 SeatOp::Pan { start_x, start_y } => {
-                    self.camera_x = start_x + seat.op_dx;
-                    self.camera_y = start_y + seat.op_dy;
+                    self.camera_x = start_x - seat.op_dx;
+                    self.camera_y = start_y - seat.op_dy;
                 }
                 SeatOp::Move {
                     window_proxy,
@@ -301,6 +301,7 @@ impl WindowManager {
         for window in self.windows.iter_mut().filter(|w| w.new) {
             window.set_position(window.x, window.y);
             window.proxy.propose_dimensions(window.width, window.height);
+            window.set_position(self.camera_x, self.camera_y);
             window.new = false;
         }
     }
@@ -410,7 +411,7 @@ impl Window {
     }
 
     fn set_node_position(&mut self, camera_x: i32, camera_y: i32) {
-        self.node.set_position(self.x + camera_x, self.y + camera_y);
+        self.node.set_position(self.x - camera_x, self.y - camera_y);
     }
 }
 
