@@ -127,6 +127,7 @@ struct Window {
     y: i32,
     width: i32,
     height: i32,
+    hidden: Option<bool>,
     pointer_move_requested: Option<RiverSeatV1>,
     pointer_resize_requested: Option<RiverSeatV1>,
     pointer_resize_requested_edges: Edges,
@@ -236,7 +237,24 @@ impl WindowManager {
             }
         }
 
+        let center = self
+            .outputs
+            .values()
+            .find_map(|o| o.usable)
+            .map(|(x, y, w, h)| (x + w / 2, y + h / 2));
+
         for window in self.windows.iter_mut() {
+            if let Some(false) = window.hidden {
+                if let Some((cx, cy)) = center {
+                    window.set_position(
+                        cx + self.camera_x - window.width / 2,
+                        cy + self.camera_y - window.height / 2,
+                    );
+                }
+                window.proxy.show();
+                window.hidden = None;
+                window.new = false
+            }
             window.set_node_position(self.camera_x, self.camera_y);
         }
 
@@ -299,10 +317,8 @@ impl WindowManager {
 
     fn init_new_windows(&mut self) {
         for window in self.windows.iter_mut().filter(|w| w.new) {
-            window.set_position(window.x, window.y);
             window.proxy.propose_dimensions(window.width, window.height);
-            window.set_position(self.camera_x, self.camera_y);
-            window.new = false;
+            window.proxy.hide();
         }
     }
 
@@ -399,6 +415,7 @@ impl Window {
             y: 0,
             width: 0,
             height: 0,
+            hidden: Some(true),
             pointer_move_requested: None,
             pointer_resize_requested: None,
             pointer_resize_requested_edges: Edges::None,
@@ -758,7 +775,12 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
         _qh: &QueueHandle<Self>,
     ) {
         use river::river_window_v1::Event;
-        let window = match state.wm.windows.iter_mut().find(|o| &o.proxy == proxy) {
+        let window = match state
+            .wm
+            .windows
+            .iter_mut()
+            .find(|output| &output.proxy == proxy)
+        {
             Some(window) => window,
             None => return,
         };
@@ -770,7 +792,13 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
                 max_width: _,
                 max_height: _,
             } => {}
-            Event::Dimensions { width, height } => (window.width, window.height) = (width, height),
+            Event::Dimensions { width, height } => {
+                window.width = width;
+                window.height = height;
+                if window.new {
+                    window.hidden = Some(false);
+                }
+            }
             Event::AppId { app_id: _ } => {}
             Event::Title { title: _ } => {}
             Event::Parent { parent: _ } => {}
