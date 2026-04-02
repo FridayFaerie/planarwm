@@ -1153,12 +1153,31 @@ fn load_config() -> Config {
 }
 
 fn parse_modifiers(s: &str) -> Option<Modifiers> {
-    match s.to_ascii_lowercase().as_str() {
-        "none" => Some(Modifiers::None),
-        "super" => Some(Modifiers::Mod4),
-        "alt" => Some(Modifiers::Mod1),
-        _ => None,
+    let mut mods = Modifiers::None;
+    let mut seen_any = false;
+
+    for part in s.split(|c: char| c == '+' || c == '-') {
+        let part = part.trim().to_ascii_lowercase();
+        if part.is_empty() {
+            continue;
+        }
+
+        let m = match part.as_str() {
+            "none" => Modifiers::None,
+            "shift" => Modifiers::Shift,
+            "ctrl" => Modifiers::Ctrl,
+            "alt" => Modifiers::Mod1,
+            "super" => Modifiers::Mod4,
+            "mod3" => Modifiers::Mod3,
+            "mod5" => Modifiers::Mod5,
+            _ => return None,
+        };
+
+        mods = mods.union(m);
+        seen_any = true;
     }
+
+    if seen_any { Some(mods) } else { None }
 }
 
 fn parse_keysym(s: &str) -> Option<u32> {
@@ -1173,10 +1192,10 @@ fn parse_keysym(s: &str) -> Option<u32> {
     }
 }
 
-fn parse_action(spec: &str) -> Option<Action> {
-    let spec = spec.trim();
+fn parse_action(keyword: &str) -> Option<Action> {
+    let keyword = keyword.trim();
 
-    match spec {
+    match keyword {
         "pan" => Some(Action::Pan),
         "close" => Some(Action::Close),
         "focus" => Some(Action::Focus),
@@ -1185,19 +1204,19 @@ fn parse_action(spec: &str) -> Option<Action> {
         "resize" => Some(Action::Resize),
         "fullscreen" => Some(Action::Fullscreen),
         "exit" => Some(Action::Exit),
-        _ if spec.starts_with("spawn ") => {
-            let rest = &spec["spawn ".len()..];
+        _ if keyword.starts_with("spawn ") => {
+            let rest = &keyword["spawn ".len()..];
             let mut parts = rest.split_whitespace();
             let program = parts.next()?.to_string();
             let args = parts.map(|s| s.to_string()).collect();
             Some(Action::Spawn { program, args })
         }
-        _ if spec.starts_with("shell ") => {
-            let command = spec["shell ".len()..].trim().to_string();
+        _ if keyword.starts_with("shell ") => {
+            let command = keyword["shell ".len()..].trim().to_string();
             Some(Action::SpawnShell { command })
         }
-        _ if spec.starts_with("view ") => {
-            let mut parts = spec["view ".len()..].split_whitespace();
+        _ if keyword.starts_with("view ") => {
+            let mut parts = keyword["view ".len()..].split_whitespace();
             let x = parts.next()?.parse().ok()?;
             let y = parts.next()?.parse().ok()?;
             Some(Action::View { x, y })
