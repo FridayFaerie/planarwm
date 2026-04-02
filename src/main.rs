@@ -68,6 +68,7 @@ enum Action {
     Spawn { program: String, args: Vec<String> },
     SpawnShell { command: String },
     Close,
+    Focus,
     FocusNext,
     Move,
     Resize,
@@ -532,6 +533,15 @@ impl Seat {
                     window_proxy.close();
                 }
             }
+            Action::Focus => {
+                if let Some(window_proxy) = self.focused.as_ref() {
+                    let window = windows
+                        .iter_mut()
+                        .find(|window| &window.proxy == window_proxy)
+                        .expect("Focused window {window.proxy.id()} not found");
+                    self.focus_window_camera(window, outputs, camera_x, camera_y)
+                }
+            }
             Action::FocusNext => {
                 windows.rotate_left(1);
                 self.focus_top(windows);
@@ -683,6 +693,23 @@ impl Seat {
         window.width = width;
         window.height = height;
         window.proxy.propose_dimensions(width, height);
+    }
+    fn focus_window_camera(
+        &self,
+        window: &Window,
+        outputs: &HashMap<ObjectId, Output>,
+        camera_x: &mut i32,
+        camera_y: &mut i32,
+    ) {
+        let Some((screen_cx, screen_cy)) = outputs.values().find_map(|output| {
+            let (x, y) = output.position?;
+            let (w, h) = output.dimensions?;
+            Some((x + w / 2, y + h / 2))
+        }) else {
+            return;
+        };
+        *camera_x = window.x + window.width / 2 - screen_cx;
+        *camera_y = window.y + window.height / 2 - screen_cy
     }
 }
 
@@ -1152,6 +1179,7 @@ fn parse_action(spec: &str) -> Option<Action> {
     match spec {
         "pan" => Some(Action::Pan),
         "close" => Some(Action::Close),
+        "focus" => Some(Action::Focus),
         "focus_next" => Some(Action::FocusNext),
         "move" => Some(Action::Move),
         "resize" => Some(Action::Resize),
