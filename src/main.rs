@@ -1093,33 +1093,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn spawn_program(program: &str, args: &[&str]) {
-    match std::process::Command::new(program)
+    // match
+    std::process::Command::new(program)
         .args(args)
         // Don't pass WAYLAND_DEBUG on to children, the added noise makes
         // debugging the window manager itself impractical.
         .env_remove("WAYLAND_DEBUG")
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
+        // .stdin(std::process::Stdio::null())
+        // .stdout(std::process::Stdio::inherit())
+        // .stderr(std::process::Stdio::inherit())
         .spawn()
-    {
-        Ok(_) => {}
-        Err(e) => eprintln!("Failed to spawn {program}: {e}"),
-    }
+        .expect("couldn't spawn program");
+    // {
+    //     Ok(_) => {}
+    //     Err(e) => eprintln!("Failed to spawn {program}: {e}"),
+    // }
 }
 
 fn spawn_shell(command: &str) {
-    match std::process::Command::new("sh")
-        .args(["-c", command])
+    std::process::Command::new("sh")
+        .arg("-c")
+        .arg(command)
         .env_remove("WAYLAND_DEBUG")
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
         .spawn()
-    {
-        Ok(_) => {}
-        Err(e) => eprintln!("Failed to run shell command {command:?}: {e}"),
-    }
+        .expect("error in running shell command");
 }
 
 fn config_path() -> PathBuf {
