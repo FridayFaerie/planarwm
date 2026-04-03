@@ -5,9 +5,9 @@ use serde::Deserialize;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
 use std::path::PathBuf;
-
 use wayland_backend::client::ObjectId;
 use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, protocol::wl_registry};
+use xkbcommon::xkb::{self, KEYSYM_CASE_INSENSITIVE};
 
 use crate::river::{
     river_layer_shell_output_v1::RiverLayerShellOutputV1,
@@ -1085,7 +1085,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
-    run_startup_programs(&config.startup);
+    for program in &config.startup {
+        spawn_shell(program)
+    }
 
     loop {
         event_queue.blocking_dispatch(&mut app_data)?;
@@ -1178,15 +1180,13 @@ fn parse_modifiers(s: &str) -> Option<Modifiers> {
 }
 
 fn parse_keysym(s: &str) -> Option<u32> {
-    let s = s.trim().to_ascii_lowercase();
-    match s.as_str() {
-        "escape" => Some(0xff1b),
-        "space" => Some(0x20),
-        "grave" => Some(0x60),
-        "print" => Some(0xff61),
-        _ if s.len() == 1 => Some(s.as_bytes()[0] as u32),
-        _ => None,
+    let ks = xkb::keysym_from_name(s.trim(), KEYSYM_CASE_INSENSITIVE);
+    // it is recommended to first call this function without this flag; and if that fails, only then to try with this flag, while possibly warning the user he had misspelled the name, and might get wrong results.
+    // but I shall not :>
+    if ks != xkb::keysyms::KEY_NoSymbol.into() {
+        return Some(ks.into());
     }
+    None
 }
 
 fn parse_action(keyword: &str) -> Option<Action> {
@@ -1219,11 +1219,5 @@ fn parse_action(keyword: &str) -> Option<Action> {
             Some(Action::View { x, y })
         }
         _ => None,
-    }
-}
-
-fn run_startup_programs(programs: &[String]) {
-    for program in programs {
-        spawn_shell(program)
     }
 }
