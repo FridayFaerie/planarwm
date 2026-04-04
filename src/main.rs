@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2026 Julian Andrews
+// SPDX-FileCopyrightText: © 2026 FridayFaerie
 // SPDX-License-Identifier: 0BSD
 
 use serde::Deserialize;
@@ -58,6 +58,14 @@ struct Config {
     bindings: HashMap<String, HashMap<String, String>>,
     #[serde(default)]
     startup: Vec<String>,
+    #[serde(default)]
+    window: WindowConfig,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+struct WindowConfig {
+    #[serde(default)]
+    force_ssd: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -193,7 +201,7 @@ impl WindowManager {
         self.remove_outputs();
         self.remove_windows();
         self.remove_seats();
-        self.init_new_windows();
+        self.init_new_windows(&config.window);
         self.init_new_seats(river_xkb, qh, config);
         self.manage_windows();
         self.manage_seats(proxy);
@@ -325,9 +333,12 @@ impl WindowManager {
         });
     }
 
-    fn init_new_windows(&mut self) {
+    fn init_new_windows(&mut self, window_config: &WindowConfig) {
         for window in self.windows.iter_mut().filter(|w| w.new) {
             window.proxy.propose_dimensions(window.width, window.height);
+            if window_config.force_ssd {
+                window.proxy.use_ssd();
+            }
             window.proxy.hide();
         }
     }
@@ -816,6 +827,7 @@ impl Dispatch<RiverWindowManagerV1, ()> for AppData {
                     .river_xkb
                     .as_ref()
                     .expect("river_xkb_bindings_v1 missing");
+                // TODO: can probably remove this config cloning someday
                 let config = state.config.clone();
                 state.wm.handle_manage_start(proxy, river_xkb, qh, &config)
             }
@@ -1081,6 +1093,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config = load_config();
     // Initial state
+    // TODO: I can probably split off this config section and not use clone someday
     let mut app_data = AppData {
         config: config.clone(),
         ..Default::default()
