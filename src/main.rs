@@ -72,7 +72,7 @@ enum Action {
     FocusNext,
     Move,
     Resize,
-    Fullscreen,
+    ToggleMaximize,
     Exit,
 }
 
@@ -127,16 +127,18 @@ struct WindowManager {
 struct Window {
     proxy: RiverWindowV1,
     node: RiverNodeV1,
-    new: bool,
-    closed: bool,
     x: i32,
     y: i32,
     width: i32,
     height: i32,
+    unmaximized_geometry: Option<(i32, i32, i32, i32)>,
+    new: bool,
+    closed: bool,
     hidden: Option<bool>,
     pointer_move_requested: Option<RiverSeatV1>,
     pointer_resize_requested: Option<RiverSeatV1>,
     pointer_resize_requested_edges: Edges,
+    maximize_requested: Option<bool>,
 }
 
 #[derive(Debug)]
@@ -385,6 +387,31 @@ impl WindowManager {
                     .expect("Seat {seat_proxy.id()} not found");
                 seat.pointer_resize(window, window.pointer_resize_requested_edges);
             }
+            if let Some(maximize) = window.maximize_requested.take() {
+                if maximize {
+                    let Some((width, height)) = self.outputs.values().find_map(|output| {
+                        let (width, height) = output.dimensions?;
+                        Some((width, height))
+                    }) else {
+                        continue;
+                    };
+                    window.unmaximized_geometry =
+                        Some((window.x, window.y, window.width, window.height));
+                    window.set_position(self.camera_x, self.camera_y);
+                    window.width = width;
+                    window.height = height;
+                    window.proxy.propose_dimensions(width, height);
+                    window.proxy.inform_maximized();
+                } else {
+                    if let Some((x, y, w, h)) = window.unmaximized_geometry.take() {
+                        window.set_position(x, y);
+                        window.width = w;
+                        window.height = h;
+                        window.proxy.propose_dimensions(w, h);
+                        window.proxy.inform_unmaximized();
+                    }
+                }
+            }
         }
     }
 
@@ -420,16 +447,18 @@ impl Window {
         Window {
             proxy,
             node,
-            new: true,
-            closed: false,
             x: 0,
             y: 0,
             width: 0,
             height: 0,
+            unmaximized_geometry: None,
+            new: true,
+            closed: false,
             hidden: Some(true),
             pointer_move_requested: None,
             pointer_resize_requested: None,
             pointer_resize_requested_edges: Edges::None,
+            maximize_requested: None,
         }
     }
 
@@ -564,13 +593,14 @@ impl Seat {
                     self.pointer_resize(window, Edges::Bottom.union(Edges::Right));
                 }
             }
-            Action::Fullscreen => {
+            Action::ToggleMaximize => {
                 if let Some(window_proxy) = self.focused.as_ref() {
-                    let window = windows
+                    if let Some(window) = windows
                         .iter_mut()
                         .find(|window| &window.proxy == window_proxy)
-                        .expect("Focused window {window.proxy.id()} not found");
-                    self.make_fullscreen(window, outputs, (*camera_x, *camera_y));
+                    {
+                        window.maximize_requested = Some(window.unmaximized_geometry.is_none());
+                    }
                 }
             }
             Action::Exit => wm_proxy.exit_session(),
@@ -676,24 +706,6 @@ impl Seat {
         self.op_dy = 0;
     }
 
-    fn make_fullscreen(
-        &self,
-        window: &mut Window,
-        outputs: &HashMap<ObjectId, Output>,
-        (camera_x, camera_y): (i32, i32),
-    ) {
-        let Some((x, y, width, height)) = outputs.values().find_map(|output| {
-            let (width, height) = output.dimensions?;
-            Some((camera_x, camera_y, width, height))
-        }) else {
-            return;
-        };
-
-        window.set_position(x, y);
-        window.width = width;
-        window.height = height;
-        window.proxy.propose_dimensions(width, height);
-    }
     fn focus_window_camera(
         &self,
         window: &Window,
@@ -882,8 +894,8 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
                     .expect("Invalid edges for resize: {edges}");
             }
             Event::ShowWindowMenuRequested { x: _, y: _ } => {}
-            Event::MaximizeRequested => {}
-            Event::UnmaximizeRequested => {}
+            Event::MaximizeRequested => window.maximize_requested = Some(true),
+            Event::UnmaximizeRequested => window.maximize_requested = Some(false),
             Event::FullscreenRequested { output: _ } => {}
             Event::ExitFullscreenRequested => {}
             Event::MinimizeRequested => {}
@@ -1206,7 +1218,7 @@ fn parse_action(keyword: &str) -> Option<Action> {
         "focus_next" => Some(Action::FocusNext),
         "move" => Some(Action::Move),
         "resize" => Some(Action::Resize),
-        "fullscreen" => Some(Action::Fullscreen),
+        "maximize" => Some(Action::ToggleMaximize),
         "exit" => Some(Action::Exit),
         _ if keyword.starts_with("spawn ") => {
             let rest = &keyword["spawn ".len()..];
