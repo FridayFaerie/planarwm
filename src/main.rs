@@ -1123,10 +1123,17 @@ fn spawn_shell(command: &str) {
 
 fn config_path() -> PathBuf {
     let home = std::env::var_os("HOME").unwrap_or_else(|| ".".into());
-    PathBuf::from(home)
-        .join(".config")
-        .join("river")
-        .join("planarwm.hocon")
+    if cfg!(debug_assertions) {
+        PathBuf::from(home)
+            .join(".config")
+            .join("river")
+            .join("planarwm-debug.hocon")
+    } else {
+        PathBuf::from(home)
+            .join(".config")
+            .join("river")
+            .join("planarwm.hocon")
+    }
 }
 
 fn load_config() -> Config {
