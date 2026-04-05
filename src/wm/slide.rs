@@ -1,6 +1,9 @@
 use crate::wm::{ObjectId, VecDeque};
+use serde::Deserialize;
 
+#[derive(Debug, Clone, Deserialize, Default)]
 pub enum SlideKind {
+    #[default]
     Tiling,
     VerticalScroll,
     HorizontalScroll,
