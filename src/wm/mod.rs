@@ -8,6 +8,7 @@ pub mod slide;
 pub mod window;
 pub mod workspace;
 
+use crate::wm::desktop::Desktop;
 use std::collections::{HashMap, VecDeque};
 use wayland_backend::client::ObjectId;
 
@@ -55,6 +56,7 @@ pub enum SeatOp {
 
 #[derive(Debug, Default)]
 pub struct WindowManager {
+    pub desktop: Desktop,
     pub windows: VecDeque<Window>,
     pub outputs: HashMap<ObjectId, Output>,
     pub seats: HashMap<ObjectId, Seat>,

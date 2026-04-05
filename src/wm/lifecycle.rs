@@ -1,3 +1,4 @@
+use super::{SeatOp, WindowManager};
 use crate::AppData;
 use crate::actions::{Action, parse_action, parse_keysym, parse_modifiers};
 use crate::config::{Config, WindowConfig};
@@ -6,9 +7,12 @@ use crate::river::{
     river_seat_v1::Modifiers, river_window_manager_v1::RiverWindowManagerV1,
     river_window_v1::Edges, river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
+use crate::wm::Desktop;
+use crate::wm::ObjectId;
+use crate::wm::slide::Slide;
+use crate::wm::workspace::Workspace;
+use std::collections::{HashMap, VecDeque};
 use wayland_client::QueueHandle;
-
-use super::{SeatOp, WindowManager};
 
 impl WindowManager {
     pub fn handle_manage_start(
@@ -270,5 +274,33 @@ impl WindowManager {
                 seat.op_manage();
             }
         }
+    }
+    pub fn active_workspace(&self) -> &Workspace {
+        self.desktop
+            .workspaces
+            .get(self.desktop.active_workspace)
+            .expect("active workspace index out of range")
+    }
+    pub fn active_workspace_mut(&mut self) -> &mut Workspace {
+        let idx = self.desktop.active_workspace;
+        self.desktop
+            .workspaces
+            .get_mut(idx)
+            .expect("active workspace index out of range")
+    }
+    pub fn active_slide(&self) -> &Slide {
+        let workspace = self.active_workspace();
+        workspace
+            .slides
+            .get(workspace.focused_slide)
+            .expect("active slide index out of range")
+    }
+    pub fn active_slide_mut(&mut self) -> &mut Slide {
+        let workspace_idx = self.desktop.active_workspace;
+        let slide_idx = self.desktop.workspaces[workspace_idx].focused_slide;
+        self.desktop.workspaces[workspace_idx]
+            .slides
+            .get_mut(slide_idx)
+            .expect("active slide index out of range")
     }
 }

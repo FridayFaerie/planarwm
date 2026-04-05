@@ -1,7 +1,7 @@
-use crate::wm::{ObjectId, VecDeque};
+use crate::wm::ObjectId;
 use serde::Deserialize;
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
 pub enum SlideKind {
     #[default]
     Tiling,
@@ -9,8 +9,9 @@ pub enum SlideKind {
     HorizontalScroll,
 }
 
+#[derive(Debug, Default)]
 pub struct Slide {
     pub kind: SlideKind,
-    pub windows: VecDeque<ObjectId>,
-    pub focused_window: Option<ObjectId>,
+    pub windows: Vec<ObjectId>,
+    pub focused_window: usize,
 }
