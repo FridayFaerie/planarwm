@@ -1,5 +1,5 @@
 use crate::river::river_seat_v1::Modifiers;
-use xkbcommon::xkb::{self, KEYSYM_CASE_INSENSITIVE};
+use xkbcommon::xkb::{self, KEYSYM_NO_FLAGS};
 
 #[derive(Debug, Clone)]
 pub enum Action {
@@ -46,9 +46,8 @@ pub fn parse_modifiers(s: &str) -> Option<Modifiers> {
 }
 
 pub fn parse_keysym(s: &str) -> Option<u32> {
-    let ks = xkb::keysym_from_name(s.trim(), KEYSYM_CASE_INSENSITIVE);
-    // it is recommended to first call this function without this flag; and if that fails, only then to try with this flag, while possibly warning the user he had misspelled the name, and might get wrong results.
-    // but I shall not :>
+    let ks = xkb::keysym_from_name(s.trim(), KEYSYM_NO_FLAGS);
+    //KEYSYM_CASE_INSENSITIVE exists, but it's recommended only to use that as a fallback
     if ks != xkb::keysyms::KEY_NoSymbol.into() {
         return Some(ks.into());
     }
