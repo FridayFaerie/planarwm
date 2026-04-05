@@ -85,9 +85,9 @@ impl Seat {
             }
             Action::Spawn { program, args } => {
                 let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
-                spawn_program(&program, &arg_refs)
+                spawn_program(program, &arg_refs)
             }
-            Action::SpawnShell { command } => spawn_shell(&command),
+            Action::SpawnShell { command } => spawn_shell(command),
             Action::Close => {
                 if let Some(window_proxy) = self.focused.as_ref() {
                     window_proxy.close();
@@ -125,14 +125,13 @@ impl Seat {
                 }
             }
             Action::ToggleMaximize => {
-                if let Some(window_proxy) = self.focused.as_ref() {
-                    if let Some(window) = windows
+                if let Some(window_proxy) = self.focused.as_ref()
+                    && let Some(window) = windows
                         .iter_mut()
                         .find(|window| &window.proxy == window_proxy)
                     {
                         window.maximize_requested = Some(window.unmaximized_geometry.is_none());
                     }
-                }
             }
             Action::Exit => wm_proxy.exit_session(),
         }

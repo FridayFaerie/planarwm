@@ -1,6 +1,5 @@
 pub fn spawn_program(program: &str, args: &[&str]) {
-    // match
-    std::process::Command::new(program)
+    match std::process::Command::new(program)
         .args(args)
         // Don't pass WAYLAND_DEBUG on to children, the added noise makes
         // debugging the window manager itself impractical.
@@ -9,18 +8,22 @@ pub fn spawn_program(program: &str, args: &[&str]) {
         // .stdout(std::process::Stdio::inherit())
         // .stderr(std::process::Stdio::inherit())
         .spawn()
-        .expect("couldn't spawn program");
-    // {
-    //     Ok(_) => {}
-    //     Err(e) => eprintln!("Failed to spawn {program}: {e}"),
-    // }
+    {
+        // Ok(_) => println!("planrwm: spawned {program}"),
+        Ok(_) => {}
+        Err(e) => eprintln!("planarwm: Failed to spawn {program}: {e}"),
+    }
 }
 
 pub fn spawn_shell(command: &str) {
-    std::process::Command::new("sh")
+    match std::process::Command::new("sh")
         .arg("-c")
         .arg(command)
         .env_remove("WAYLAND_DEBUG")
         .spawn()
-        .expect("error in running shell command");
+    {
+        // Ok(_) => println!("planrwm: ran shell command {command}"),
+        Ok(_) => {}
+        Err(e) => eprintln!("planarwm: Failed to run shell command '{command}': {e}"),
+    }
 }

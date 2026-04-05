@@ -21,7 +21,7 @@ pub fn parse_modifiers(s: &str) -> Option<Modifiers> {
     let mut mods = Modifiers::None;
     let mut seen_any = false;
 
-    for part in s.split(|c: char| c == '+' || c == '-') {
+    for part in s.split(['+', '-']) {
         let part = part.trim().to_ascii_lowercase();
         if part.is_empty() {
             continue;

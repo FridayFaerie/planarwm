@@ -121,11 +121,9 @@ impl WindowManager {
                     for seat in self.seats.values_mut() {
                         if let SeatOp::Move { window_proxy, .. }
                         | SeatOp::Resize { window_proxy, .. } = &seat.op
-                        {
-                            if window_proxy == &window.proxy {
+                            && window_proxy == &window.proxy {
                                 seat.op_end();
                             }
-                        }
                     }
                     return false;
                 }
