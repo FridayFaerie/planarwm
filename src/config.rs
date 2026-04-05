@@ -40,8 +40,8 @@ pub fn load_config() -> Config {
         return Config::default();
     }
 
-    match hocon::HoconLoader::new().load_file(path.to_string_lossy().as_ref()) {
-        Ok(loader) => match loader.resolve() {
+    match std::fs::read_to_string(path.to_string_lossy().as_ref()) {
+        Ok(content) => match hocon_rs::Config::parse_str(&content, None) {
             Ok(cfg) => cfg,
             Err(e) => {
                 eprintln!("Failed to parse config: {e}");
