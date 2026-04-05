@@ -29,7 +29,7 @@ impl WindowManager {
     }
 
     pub fn handle_render_start(&mut self, proxy: &RiverWindowManagerV1) {
-        for seat in &mut self.seats.values_mut() {
+        for seat in self.seats.values_mut() {
             match &seat.op {
                 SeatOp::None => {}
                 SeatOp::Pan { start_x, start_y } => {
@@ -121,9 +121,10 @@ impl WindowManager {
                     for seat in self.seats.values_mut() {
                         if let SeatOp::Move { window_proxy, .. }
                         | SeatOp::Resize { window_proxy, .. } = &seat.op
-                            && window_proxy == &window.proxy {
-                                seat.op_end();
-                            }
+                            && window_proxy == &window.proxy
+                        {
+                            seat.op_end();
+                        }
                     }
                     return false;
                 }
@@ -206,7 +207,9 @@ impl WindowManager {
                 let seat = self
                     .seats
                     .get_mut(&seat_proxy.id())
-                    .expect("Seat {seat_proxy.id()} not found");
+                    .unwrap_or_else(|| panic!("Seat {} not found", seat_proxy.id()));
+                // TODO: remove this pattern
+                // .expect("Seat {seat_proxy.id()} not found");
                 seat.pointer_move(window);
             }
             if let Some(seat_proxy) = window.pointer_resize_requested.take() {
