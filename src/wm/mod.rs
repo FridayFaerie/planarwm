@@ -1,4 +1,5 @@
 pub mod dispatch;
+pub mod libinputdevice;
 pub mod lifecycle;
 pub mod output;
 pub mod seat;
@@ -11,6 +12,7 @@ use crate::actions::Action;
 use crate::river::{
     river_layer_shell_output_v1::RiverLayerShellOutputV1,
     river_layer_shell_seat_v1::RiverLayerShellSeatV1,
+    river_libinput_device_v1::RiverLibinputDeviceV1,
     river_node_v1::RiverNodeV1,
     river_output_v1::RiverOutputV1,
     river_pointer_binding_v1::RiverPointerBindingV1,
@@ -53,6 +55,7 @@ pub struct WindowManager {
     pub windows: VecDeque<Window>,
     pub outputs: HashMap<ObjectId, Output>,
     pub seats: HashMap<ObjectId, Seat>,
+    pub libinput_devices: HashMap<ObjectId, LibinputDevice>,
     pub camera_x: i32,
     pub camera_y: i32,
 }
@@ -73,6 +76,12 @@ pub struct Window {
     pub pointer_resize_requested: Option<RiverSeatV1>,
     pub pointer_resize_requested_edges: Edges,
     pub maximize_requested: Option<bool>,
+}
+
+#[derive(Debug)]
+pub struct LibinputDevice {
+    proxy: RiverLibinputDeviceV1,
+    tap_support: Option<i32>,
 }
 
 #[derive(Debug)]

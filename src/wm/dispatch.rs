@@ -2,13 +2,18 @@ use wayland_backend::client::ObjectId;
 use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, protocol::wl_registry};
 
 use crate::river::{
+    river_input_device_v1::RiverInputDeviceV1, river_input_manager_v1::RiverInputManagerV1,
     river_layer_shell_output_v1::RiverLayerShellOutputV1,
     river_layer_shell_seat_v1::RiverLayerShellSeatV1, river_layer_shell_v1::RiverLayerShellV1,
-    river_node_v1::RiverNodeV1, river_output_v1::RiverOutputV1,
-    river_pointer_binding_v1::RiverPointerBindingV1, river_seat_v1::RiverSeatV1,
-    river_window_manager_v1::RiverWindowManagerV1, river_window_v1::RiverWindowV1,
-    river_xkb_binding_v1::RiverXkbBindingV1, river_xkb_bindings_v1::RiverXkbBindingsV1,
+    river_libinput_config_v1::RiverLibinputConfigV1,
+    river_libinput_device_v1::RiverLibinputDeviceV1,
+    river_libinput_result_v1::RiverLibinputResultV1, river_node_v1::RiverNodeV1,
+    river_output_v1::RiverOutputV1, river_pointer_binding_v1::RiverPointerBindingV1,
+    river_seat_v1::RiverSeatV1, river_window_manager_v1::RiverWindowManagerV1,
+    river_window_v1::RiverWindowV1, river_xkb_binding_v1::RiverXkbBindingV1,
+    river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
+use crate::wm::LibinputDevice;
 
 use super::{LayerFocus, Output, Seat, Window};
 use crate::AppData;
@@ -78,6 +83,14 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
                         (),
                     );
                     state.river_ls = Some(layer_shell);
+                }
+                "river_input_manager_v1" => {
+                    state.river_im =
+                        Some(registry.bind::<RiverInputManagerV1, _, _>(name, 1, qh, ()));
+                }
+                "river_libinput_config_v1" => {
+                    state.river_lc =
+                        Some(registry.bind::<RiverLibinputConfigV1, _, _>(name, 1, qh, ()));
                 }
                 _ => {}
             }
@@ -356,6 +369,123 @@ impl Dispatch<RiverPointerBindingV1, ObjectId> for AppData {
         match event {
             Event::Pressed => seat.pending_action = binding.action.clone(),
             Event::Released => {}
+        }
+    }
+}
+
+impl Dispatch<RiverInputManagerV1, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &RiverInputManagerV1,
+        _event: <RiverInputManagerV1 as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+    }
+
+    wayland_client::event_created_child!(AppData, RiverInputManagerV1, [
+        river::river_input_manager_v1::EVT_INPUT_DEVICE_OPCODE => (RiverInputDeviceV1, ())
+    ]);
+}
+
+impl Dispatch<RiverInputDeviceV1, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &RiverInputDeviceV1,
+        _event: <RiverInputDeviceV1 as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+    }
+}
+
+impl Dispatch<RiverLibinputDeviceV1, ()> for AppData {
+    fn event(
+        state: &mut Self,
+        proxy: &RiverLibinputDeviceV1,
+        event: <RiverLibinputDeviceV1 as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        qh: &QueueHandle<Self>,
+    ) {
+        use river::river_libinput_device_v1::Event;
+
+        let dev = state
+            .wm
+            .libinput_devices
+            .entry(proxy.id())
+            .or_insert_with(|| LibinputDevice::new(proxy.clone()));
+
+        match event {
+            Event::TapSupport { finger_count } => {
+                dev.tap_support = Some(finger_count);
+
+                if finger_count > 0 {
+                    dev.proxy
+                        .set_tap(river::river_libinput_device_v1::TapState::Enabled, qh, ());
+                    dev.proxy
+                        .set_drag(river::river_libinput_device_v1::DragState::Enabled, qh, ());
+                    dev.proxy.set_natural_scroll(
+                        river::river_libinput_device_v1::NaturalScrollState::Enabled,
+                        qh,
+                        (),
+                    );
+                }
+            }
+            Event::Removed => {
+                state.wm.libinput_devices.remove(&proxy.id());
+            }
+            _ => {}
+        }
+    }
+
+    wayland_client::event_created_child!(AppData, RiverLibinputConfigV1, [
+        river::river_libinput_config_v1::EVT_LIBINPUT_DEVICE_OPCODE => (RiverLibinputDeviceV1, ())
+    ]);
+}
+
+impl Dispatch<RiverLibinputConfigV1, ()> for AppData {
+    fn event(
+        state: &mut Self,
+        _proxy: &RiverLibinputConfigV1,
+        event: <RiverLibinputConfigV1 as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        use river::river_libinput_config_v1::Event;
+
+        match event {
+            Event::LibinputDevice { id } => {
+                state
+                    .wm
+                    .libinput_devices
+                    .insert(id.id(), LibinputDevice::new(id));
+            }
+            Event::Finished => {}
+        }
+    }
+    wayland_client::event_created_child!(AppData,RiverLibinputConfigV1,[river::river_libinput_config_v1::EVT_LIBINPUT_DEVICE_OPCODE=>(RiverLibinputDeviceV1,())]);
+}
+
+impl Dispatch<RiverLibinputResultV1, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &RiverLibinputResultV1,
+        event: <RiverLibinputResultV1 as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        use river::river_libinput_result_v1::Event;
+        match event {
+            Event::Success => {}
+            Event::Unsupported => eprintln!("libinput setting unsupported on this device"),
+            Event::Invalid => {
+                eprintln!("libinput setting invalid")
+            }
         }
     }
 }

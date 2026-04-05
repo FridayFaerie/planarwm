@@ -13,7 +13,8 @@ use wayland_client::Connection;
 
 use crate::config::{Config, load_config};
 use crate::river::{
-    river_layer_shell_v1::RiverLayerShellV1, river_window_manager_v1::RiverWindowManagerV1,
+    river_input_manager_v1::RiverInputManagerV1, river_layer_shell_v1::RiverLayerShellV1,
+    river_libinput_config_v1::RiverLibinputConfigV1, river_window_manager_v1::RiverWindowManagerV1,
     river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
 use crate::wm::{Output, Window, WindowManager};
@@ -27,6 +28,8 @@ struct AppData {
     river_wm: Option<RiverWindowManagerV1>,
     river_xkb: Option<RiverXkbBindingsV1>,
     river_ls: Option<RiverLayerShellV1>,
+    river_im: Option<RiverInputManagerV1>,
+    river_lc: Option<RiverLibinputConfigV1>,
     wm: WindowManager,
 }
 

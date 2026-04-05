@@ -129,9 +129,9 @@ impl Seat {
                     && let Some(window) = windows
                         .iter_mut()
                         .find(|window| &window.proxy == window_proxy)
-                    {
-                        window.maximize_requested = Some(window.unmaximized_geometry.is_none());
-                    }
+                {
+                    window.maximize_requested = Some(window.unmaximized_geometry.is_none());
+                }
             }
             Action::Exit => wm_proxy.exit_session(),
         }
