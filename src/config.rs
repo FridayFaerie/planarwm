@@ -24,12 +24,12 @@ fn config_path() -> PathBuf {
         PathBuf::from(home)
             .join(".config")
             .join("river")
-            .join("planarwm-debug.hocon")
+            .join("planarwm-debug.conf")
     } else {
         PathBuf::from(home)
             .join(".config")
             .join("river")
-            .join("planarwm.hocon")
+            .join("planarwm.conf")
     }
 }
 
