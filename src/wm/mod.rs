@@ -1,9 +1,12 @@
+pub mod desktop;
 pub mod dispatch;
 pub mod libinputdevice;
 pub mod lifecycle;
 pub mod output;
 pub mod seat;
+pub mod slide;
 pub mod window;
+pub mod workspace;
 
 use std::collections::{HashMap, VecDeque};
 use wayland_backend::client::ObjectId;
