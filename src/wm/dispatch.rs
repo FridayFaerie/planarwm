@@ -1,6 +1,6 @@
-use wayland_backend::client::ObjectId;
-use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, protocol::wl_registry};
-
+use super::{LayerFocus, Output, Seat, Window};
+use crate::AppData;
+pub use crate::protocol::river;
 use crate::river::{
     river_input_device_v1::RiverInputDeviceV1, river_input_manager_v1::RiverInputManagerV1,
     river_layer_shell_output_v1::RiverLayerShellOutputV1,
@@ -14,11 +14,8 @@ use crate::river::{
     river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
 use crate::wm::LibinputDevice;
-
-use super::{LayerFocus, Output, Seat, Window};
-use crate::AppData;
-
-pub use crate::protocol::river;
+use wayland_backend::client::ObjectId;
+use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, protocol::wl_registry};
 
 impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
     fn event(
@@ -126,7 +123,9 @@ impl Dispatch<RiverWindowManagerV1, ()> for AppData {
             Event::RenderStart => state.wm.handle_render_start(proxy),
             Event::SessionLocked => {}
             Event::SessionUnlocked => {}
-            Event::Window { id } => state.wm.windows.push_back(Window::new(id, qh)),
+            Event::Window { id } => {
+                state.wm.windows.insert(id.clone(), Window::new(id, qh));
+            }
             Event::Output { id } => {
                 let mut output = Output::new(id.clone());
                 if let Some(layer_shell) = &state.river_ls {
@@ -165,7 +164,7 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
         let window = match state
             .wm
             .windows
-            .iter_mut()
+            .values_mut()
             .find(|output| &output.proxy == proxy)
         {
             Some(window) => window,

@@ -1,8 +1,3 @@
-use std::collections::{HashMap, VecDeque};
-
-use wayland_backend::client::ObjectId;
-use wayland_client::QueueHandle;
-
 use crate::AppData;
 use crate::actions::Action;
 use crate::process::{spawn_program, spawn_shell};
@@ -11,8 +6,12 @@ use crate::river::{
     river_seat_v1::{Modifiers, RiverSeatV1},
     river_window_manager_v1::RiverWindowManagerV1,
     river_window_v1::Edges,
+    river_window_v1::RiverWindowV1,
     river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
+use std::collections::HashMap;
+use wayland_backend::client::ObjectId;
+use wayland_client::QueueHandle;
 
 use super::{LayerFocus, Output, PointerBinding, Seat, SeatOp, Window, XkbBinding};
 
@@ -68,7 +67,7 @@ impl Seat {
 
     pub fn do_action(
         &mut self,
-        windows: &mut VecDeque<Window>,
+        windows: &mut HashMap<RiverWindowV1, Window>,
         outputs: &HashMap<ObjectId, Output>,
         wm_proxy: &RiverWindowManagerV1,
         camera_x: &mut i32,
@@ -96,20 +95,21 @@ impl Seat {
             Action::Focus => {
                 if let Some(window_proxy) = self.focused.as_ref() {
                     let window = windows
-                        .iter_mut()
+                        .values_mut()
                         .find(|window| &window.proxy == window_proxy)
                         .expect("Focused window {window.proxy.id()} not found");
                     self.focus_window_camera(window, outputs, camera_x, camera_y)
                 }
             }
             Action::FocusNext => {
-                windows.rotate_left(1);
-                self.focus_top(windows);
+                // TODO: fix this
+                // windows.rotate_left(1);
+                // self.focus_top(windows);
             }
             Action::Move => {
                 if let (Some(window_proxy), SeatOp::None) = (self.hovered.as_ref(), &self.op) {
                     let window = windows
-                        .iter()
+                        .values()
                         .find(|window| &window.proxy == window_proxy)
                         .expect("Hovered window {window.proxy.id()} not found");
                     self.pointer_move(window);
@@ -118,7 +118,7 @@ impl Seat {
             Action::Resize => {
                 if let (Some(window_proxy), SeatOp::None) = (self.hovered.as_ref(), &self.op) {
                     let window = windows
-                        .iter()
+                        .values()
                         .find(|window| &window.proxy == window_proxy)
                         .expect("Hovered window {window.proxy.id()} not found");
                     self.pointer_resize(window, Edges::Bottom.union(Edges::Right));
@@ -127,7 +127,7 @@ impl Seat {
             Action::ToggleMaximize => {
                 if let Some(window_proxy) = self.focused.as_ref()
                     && let Some(window) = windows
-                        .iter_mut()
+                        .values_mut()
                         .find(|window| &window.proxy == window_proxy)
                 {
                     window.maximize_requested = Some(window.unmaximized_geometry.is_none());
@@ -175,28 +175,28 @@ impl Seat {
         }
     }
 
-    pub fn focus_top(&mut self, windows: &VecDeque<Window>) {
-        match self.layer_focus {
-            LayerFocus::Exclusive => {
-                self.proxy.clear_focus();
-                self.focused = None;
-                return;
-            }
-            LayerFocus::NonExclusive => {}
-            LayerFocus::None => {}
-        }
-        match windows.back() {
-            Some(window) => {
-                self.proxy.focus_window(&window.proxy);
-                window.node.place_top();
-                self.focused = Some(window.proxy.clone());
-            }
-            None => {
-                self.proxy.clear_focus();
-                self.focused = None;
-            }
-        }
-    }
+    // pub fn focus_top(&mut self, windows: &VecDeque<Window>) {
+    //     match self.layer_focus {
+    //         LayerFocus::Exclusive => {
+    //             self.proxy.clear_focus();
+    //             self.focused = None;
+    //             return;
+    //         }
+    //         LayerFocus::NonExclusive => {}
+    //         LayerFocus::None => {}
+    //     }
+    //     match windows.back() {
+    //         Some(window) => {
+    //             self.proxy.focus_window(&window.proxy);
+    //             window.node.place_top();
+    //             self.focused = Some(window.proxy.clone());
+    //         }
+    //         None => {
+    //             self.proxy.clear_focus();
+    //             self.focused = None;
+    //         }
+    //     }
+    // }
 
     fn pointer_pan(&mut self, camera_x: i32, camera_y: i32) {
         self.proxy.op_start_pointer();

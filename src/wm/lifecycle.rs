@@ -7,11 +7,6 @@ use crate::river::{
     river_seat_v1::Modifiers, river_window_manager_v1::RiverWindowManagerV1,
     river_window_v1::Edges, river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
-use crate::wm::Desktop;
-use crate::wm::ObjectId;
-use crate::wm::slide::Slide;
-use crate::wm::workspace::Workspace;
-use std::collections::{HashMap, VecDeque};
 use wayland_client::QueueHandle;
 
 impl WindowManager {
@@ -47,7 +42,7 @@ impl WindowManager {
                 } => {
                     if let Some(window) = self
                         .windows
-                        .iter_mut()
+                        .values_mut()
                         .find(|window| &window.proxy == window_proxy)
                     {
                         window.set_position(start_x + seat.op_dx, start_y + seat.op_dy);
@@ -63,7 +58,7 @@ impl WindowManager {
                 } => {
                     if let Some(window) = self
                         .windows
-                        .iter_mut()
+                        .values_mut()
                         .find(|window| &window.proxy == window_proxy)
                     {
                         let (mut x, mut y) = (*start_x, *start_y);
@@ -85,7 +80,7 @@ impl WindowManager {
             .find_map(|o| o.usable)
             .map(|(x, y, w, h)| (x + w / 2, y + h / 2));
 
-        for window in self.windows.iter_mut() {
+        for window in self.windows.values_mut() {
             if let Some(false) = window.hidden {
                 if let Some((cx, cy)) = center {
                     window.set_position(
@@ -120,7 +115,7 @@ impl WindowManager {
         let old_windows = std::mem::take(&mut self.windows);
         self.windows = old_windows
             .into_iter()
-            .filter(|window| {
+            .filter(|(_, window)| {
                 if window.closed {
                     for seat in self.seats.values_mut() {
                         if let SeatOp::Move { window_proxy, .. }
@@ -157,7 +152,7 @@ impl WindowManager {
     }
 
     pub fn init_new_windows(&mut self, window_config: &WindowConfig) {
-        for window in self.windows.iter_mut().filter(|w| w.new) {
+        for window in self.windows.values_mut().filter(|w| w.new) {
             window.proxy.propose_dimensions(window.width, window.height);
             if window_config.force_ssd {
                 window.proxy.use_ssd();
@@ -206,7 +201,7 @@ impl WindowManager {
     }
 
     pub fn manage_windows(&mut self) {
-        for window in self.windows.iter_mut() {
+        for window in self.windows.values_mut() {
             if let Some(seat_proxy) = window.pointer_move_requested.take() {
                 let seat = self
                     .seats
@@ -257,15 +252,16 @@ impl WindowManager {
         let camera_y = &mut self.camera_y;
 
         for seat in self.seats.values_mut() {
-            if let Some(window_proxy) = seat.interacted.take() {
-                let i = windows
-                    .iter()
-                    .position(|window| window.proxy == window_proxy)
-                    .expect("Interacted window {window.proxy.id()} not found");
-                let window = windows.remove(i).unwrap();
-                windows.push_back(window);
-            }
-            seat.focus_top(windows);
+            // TODO: I think this is to send a window to front, which I don't need anymore (I think)
+            // if let Some(window_proxy) = seat.interacted.take() {
+            //     let i = windows
+            //         .iter()
+            //         .position(|window| window.proxy == window_proxy)
+            //         .expect("Interacted window {window.proxy.id()} not found");
+            //     let window = windows.remove(i).unwrap();
+            //     windows.push_back(window);
+            // }
+            // seat.focus_top(windows);
             seat.do_action(windows, &self.outputs, wm_proxy, camera_x, camera_y);
             if seat.op_release {
                 seat.op_end();
@@ -274,33 +270,5 @@ impl WindowManager {
                 seat.op_manage();
             }
         }
-    }
-    pub fn active_workspace(&self) -> &Workspace {
-        self.desktop
-            .workspaces
-            .get(self.desktop.active_workspace)
-            .expect("active workspace index out of range")
-    }
-    pub fn active_workspace_mut(&mut self) -> &mut Workspace {
-        let idx = self.desktop.active_workspace;
-        self.desktop
-            .workspaces
-            .get_mut(idx)
-            .expect("active workspace index out of range")
-    }
-    pub fn active_slide(&self) -> &Slide {
-        let workspace = self.active_workspace();
-        workspace
-            .slides
-            .get(workspace.focused_slide)
-            .expect("active slide index out of range")
-    }
-    pub fn active_slide_mut(&mut self) -> &mut Slide {
-        let workspace_idx = self.desktop.active_workspace;
-        let slide_idx = self.desktop.workspaces[workspace_idx].focused_slide;
-        self.desktop.workspaces[workspace_idx]
-            .slides
-            .get_mut(slide_idx)
-            .expect("active slide index out of range")
     }
 }

@@ -1,4 +1,4 @@
-use crate::wm::slide::SlideKind;
+use crate::wm::slide::SlideType;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -31,7 +31,7 @@ pub struct WorkspaceConfig {
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct SlideConfig {
     #[serde(default)]
-    pub kind: SlideKind,
+    pub slide_type: SlideType,
 }
 
 fn config_path() -> PathBuf {
