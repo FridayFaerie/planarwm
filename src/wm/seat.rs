@@ -9,6 +9,7 @@ use crate::river::{
     river_window_v1::RiverWindowV1,
     river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
+use crate::wm::desktop::Desktop;
 use std::collections::HashMap;
 use wayland_backend::client::ObjectId;
 use wayland_client::QueueHandle;
@@ -65,8 +66,10 @@ impl Seat {
         self.pointer_bindings.insert(binding.proxy.id(), binding);
     }
 
+    // NOTE: this is the stuff that happens on keybinding
     pub fn do_action(
         &mut self,
+        desktop: &mut Desktop,
         windows: &mut HashMap<RiverWindowV1, Window>,
         outputs: &HashMap<ObjectId, Output>,
         wm_proxy: &RiverWindowManagerV1,
@@ -92,7 +95,7 @@ impl Seat {
                     window_proxy.close();
                 }
             }
-            Action::Focus => {
+            Action::CenterFocused => {
                 if let Some(window_proxy) = self.focused.as_ref() {
                     let window = windows
                         .values_mut()
@@ -100,11 +103,6 @@ impl Seat {
                         .expect("Focused window {window.proxy.id()} not found");
                     self.focus_window_camera(window, outputs, camera_x, camera_y)
                 }
-            }
-            Action::FocusNext => {
-                // TODO: fix this
-                // windows.rotate_left(1);
-                // self.focus_top(windows);
             }
             Action::Move => {
                 if let (Some(window_proxy), SeatOp::None) = (self.hovered.as_ref(), &self.op) {
@@ -132,6 +130,14 @@ impl Seat {
                 {
                     window.maximize_requested = Some(window.unmaximized_geometry.is_none());
                 }
+            }
+            Action::PrevSlide => {
+                let workspace = desktop.active_workspace_mut();
+                workspace.prev_slide(windows);
+            }
+            Action::NextSlide => {
+                let workspace = desktop.active_workspace_mut();
+                workspace.next_slide(windows);
             }
             Action::Exit => wm_proxy.exit_session(),
         }
@@ -175,7 +181,21 @@ impl Seat {
         }
     }
 
-    // pub fn focus_top(&mut self, windows: &VecDeque<Window>) {
+    pub fn focus_window(&mut self, window_id: &RiverWindowV1) {
+        match self.layer_focus {
+            LayerFocus::Exclusive => {
+                self.proxy.clear_focus();
+                self.focused = None;
+                return;
+            }
+            LayerFocus::NonExclusive => {}
+            LayerFocus::None => {}
+        }
+        self.proxy.focus_window(window_id);
+        self.focused = Some(window_id.clone());
+    }
+
+    // pub fn focus_top(&mut self, windows: &HashMap<RiverWindowV1, Window>, desktop: &mut Desktop) {
     //     match self.layer_focus {
     //         LayerFocus::Exclusive => {
     //             self.proxy.clear_focus();
@@ -185,11 +205,15 @@ impl Seat {
     //         LayerFocus::NonExclusive => {}
     //         LayerFocus::None => {}
     //     }
-    //     match windows.back() {
+    //
+    //     let slide = desktop.active_workspace_mut().active_slide_mut();
+    //
+    //     match slide.windows.last_mut() {
     //         Some(window) => {
-    //             self.proxy.focus_window(&window.proxy);
-    //             window.node.place_top();
-    //             self.focused = Some(window.proxy.clone());
+    //             self.proxy.focus_window(window); // for inputs
+    //             // TODO: I really really should do this
+    //             // window.node.place_top(); // render on top
+    //             self.focused = Some(window.clone()); // for bookkeeping
     //         }
     //         None => {
     //             self.proxy.clear_focus();

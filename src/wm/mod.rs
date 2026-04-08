@@ -5,10 +5,12 @@ pub mod lifecycle;
 pub mod output;
 pub mod seat;
 pub mod slide;
+pub mod utils;
 pub mod window;
 pub mod workspace;
 
 use crate::wm::desktop::Desktop;
+use crate::wm::window::WindowLocation;
 use std::collections::HashMap;
 use wayland_backend::client::ObjectId;
 
@@ -69,14 +71,19 @@ pub struct WindowManager {
 pub struct Window {
     pub proxy: RiverWindowV1,
     pub node: RiverNodeV1,
+    pub title: String,
+
+    pub location: Option<WindowLocation>,
     pub x: i32,
     pub y: i32,
     pub width: i32,
     pub height: i32,
+    pub target_dimensions: Option<(i32, i32)>,
+    pub target_position: Option<(i32, i32)>,
+
     pub unmaximized_geometry: Option<(i32, i32, i32, i32)>,
     pub new: bool,
     pub closed: bool,
-    pub hidden: Option<bool>,
     pub pointer_move_requested: Option<RiverSeatV1>,
     pub pointer_resize_requested: Option<RiverSeatV1>,
     pub pointer_resize_requested_edges: Edges,

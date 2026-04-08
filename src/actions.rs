@@ -9,11 +9,12 @@ pub enum Action {
     Spawn { program: String, args: Vec<String> },
     SpawnShell { command: String },
     Close,
-    Focus,
-    FocusNext,
+    CenterFocused,
     Move,
     Resize,
     ToggleMaximize,
+    NextSlide,
+    PrevSlide,
     Exit,
 }
 
@@ -60,11 +61,12 @@ pub fn parse_action(keyword: &str) -> Option<Action> {
     match keyword {
         "pan" => Some(Action::Pan),
         "close" => Some(Action::Close),
-        "focus" => Some(Action::Focus),
-        "focus_next" => Some(Action::FocusNext),
+        "center_focused" => Some(Action::CenterFocused),
         "move" => Some(Action::Move),
         "resize" => Some(Action::Resize),
         "maximize" => Some(Action::ToggleMaximize),
+        "next_slide" => Some(Action::NextSlide),
+        "prev_slide" => Some(Action::PrevSlide),
         "exit" => Some(Action::Exit),
         _ if keyword.starts_with("spawn ") => {
             let rest = &keyword["spawn ".len()..];

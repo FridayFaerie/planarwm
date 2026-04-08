@@ -181,12 +181,9 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
             Event::Dimensions { width, height } => {
                 window.width = width;
                 window.height = height;
-                if window.new {
-                    window.hidden = Some(false);
-                }
             }
             Event::AppId { app_id: _ } => {}
-            Event::Title { title: _ } => {}
+            Event::Title { title } => window.title = title.unwrap(),
             Event::Parent { parent: _ } => {}
             Event::DecorationHint { hint: _ } => {}
             Event::PointerMoveRequested { seat } => window.pointer_move_requested = Some(seat),
