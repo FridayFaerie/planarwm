@@ -191,10 +191,17 @@ impl WindowManager {
             const BTN_LEFT: u32 = 0x110;
             const BTN_RIGHT: u32 = 0x111;
             const BTN_MIDDLE: u32 = 0x112;
-            let mods = Modifiers::Mod1;
-            seat.create_pointer_binding(qh, mods, BTN_LEFT, Action::Move);
-            seat.create_pointer_binding(qh, mods, BTN_RIGHT, Action::Resize);
-            seat.create_pointer_binding(qh, Modifiers::None, BTN_MIDDLE, Action::Pan);
+            if cfg!(debug_assertions) {
+                let mods = Modifiers::Mod4;
+                seat.create_pointer_binding(qh, mods, BTN_LEFT, Action::Move);
+                seat.create_pointer_binding(qh, mods, BTN_RIGHT, Action::Resize);
+                seat.create_pointer_binding(qh, mods, BTN_MIDDLE, Action::Pan);
+            } else {
+                let mods = Modifiers::Mod1;
+                seat.create_pointer_binding(qh, mods, BTN_LEFT, Action::Move);
+                seat.create_pointer_binding(qh, mods, BTN_RIGHT, Action::Resize);
+                seat.create_pointer_binding(qh, Modifiers::None, BTN_MIDDLE, Action::Pan);
+            }
 
             seat.new = false;
         }
