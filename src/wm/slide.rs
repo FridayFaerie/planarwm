@@ -39,6 +39,8 @@ impl Slide {
             self.windows.push(window_id);
             self.rearrange_required = true;
         }
+        // TODO: This is not sustainable....
+        self.active_window = self.windows.len() - 1;
     }
 
     pub fn compute_targets(&self, bounds: Rect, windows: &mut HashMap<RiverWindowV1, Window>) {

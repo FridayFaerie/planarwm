@@ -81,6 +81,7 @@ impl Seat {
             Action::Pan => {
                 self.pointer_pan(*camera_x, *camera_y);
             }
+            // TODO: this is clearly bad
             Action::View { x, y } => {
                 *camera_x = *x;
                 *camera_y = *y;
@@ -134,10 +135,14 @@ impl Seat {
             Action::PrevSlide => {
                 let workspace = desktop.active_workspace_mut();
                 workspace.prev_slide(windows);
+                let coord = workspace.slides[workspace.active_slide].coord;
+                (*camera_x, *camera_y) = coord;
             }
             Action::NextSlide => {
                 let workspace = desktop.active_workspace_mut();
                 workspace.next_slide(windows);
+                let coord = workspace.slides[workspace.active_slide].coord;
+                (*camera_x, *camera_y) = (coord.0, coord.1);
             }
             Action::Exit => wm_proxy.exit_session(),
         }

@@ -84,7 +84,14 @@ impl WindowManager {
             }
         }
 
-        self.render_windows();
+        for workspace in self.desktop.workspaces.values_mut() {
+            if workspace.focus_active_requested {
+                (self.camera_x, self.camera_y) = workspace.slides[workspace.active_slide].coord;
+                workspace.focus_active_requested = false;
+            }
+        }
+
+        self.move_windows_to_target();
 
         for window in self.windows.values_mut() {
             window.set_node_position(self.camera_x, self.camera_y);
@@ -100,11 +107,13 @@ impl WindowManager {
             ws.active_slide = 0;
         }
         ws.child_rearrange_required = true;
+        ws.rearrange_required = true;
 
         let slide = &mut ws.slides[ws.active_slide];
         slide.attach_window(window_id.clone());
 
         if let Some(window) = self.windows.get_mut(&window_id) {
+            eprintln!("TODO: slide id is {}", slide.id);
             window.location = Some(WindowLocation {
                 workspace_id: ws.id.clone(),
                 slide_id: slide.id.clone(),
@@ -195,6 +204,7 @@ impl WindowManager {
                 if window_config.force_ssd {
                     window.proxy.use_ssd();
                 }
+                window.proxy.inform_maximized();
                 window.new = false;
                 window.node.place_top();
                 for seat in self.seats.values_mut() {
@@ -311,6 +321,23 @@ impl WindowManager {
                 let window = windows.get_mut(&window_proxy).unwrap();
                 window.node.place_top();
                 seat.focus_window(&window_proxy);
+
+                // TODO: should probably fix this code
+                if let Some(location) = &window.location {
+                    desktop.active_workspace = location.workspace_id.clone();
+                    let workspace = desktop.active_workspace_mut();
+                    workspace.active_slide = workspace
+                        .slides
+                        .iter()
+                        .position(|s| s.id == location.slide_id)
+                        .expect("oops can't find slide");
+
+                    eprintln!(
+                        "TODO: window was just interacted with! slide id is: {}, and active slide is {}",
+                        location.slide_id, workspace.active_slide
+                    );
+                    (*camera_x, *camera_y) = workspace.slides[workspace.active_slide].coord;
+                }
             }
 
             seat.do_action(
@@ -330,13 +357,10 @@ impl WindowManager {
         }
     }
 
-    pub fn render_windows(&mut self) {
+    pub fn move_windows_to_target(&mut self) {
         for window in self.windows.values_mut() {
-            println!("Window {} has position {}", window.title, window.x,);
             if let Some(position) = window.target_position.take() {
-                println!("and target {}", position.0);
                 (window.x, window.y) = position;
-                window.node.set_position(window.x, window.y);
             }
         }
     }
@@ -352,6 +376,9 @@ impl WindowManager {
         };
 
         for workspace in self.desktop.workspaces.values_mut() {
+            if workspace.rearrange_required {
+                workspace.rearrange();
+            }
             if workspace.child_rearrange_required {
                 workspace.child_rearrange(&mut self.windows);
             }

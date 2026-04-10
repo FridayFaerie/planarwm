@@ -48,11 +48,13 @@ impl Default for Desktop {
             id: default_id.clone(),
             coord: (0, 0),
             // TODO: fix
-            // dimensions: (1920, 1080),
-            dimensions: (1280, 720),
+            dimensions: (1920, 1080),
+            // dimensions: (1280, 720),
             slides: vec![Slide::new(0)],
             active_slide: 0,
             child_rearrange_required: true,
+            rearrange_required: true,
+            focus_active_requested: false,
             new_slide_id: 1,
         };
 
