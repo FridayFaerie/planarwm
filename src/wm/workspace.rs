@@ -68,7 +68,17 @@ impl Workspace {
             } else {
             }
         }
-        self.active_slide += 1;
+        if let Some(previous_slide) = self.slides.get(self.active_slide) {
+            if previous_slide.windows.len() == 0 {
+                self.slides.remove(self.active_slide);
+                // TODO: refactor this away
+                for slide in self.slides.iter_mut() {
+                    slide.rearrange_required = true;
+                }
+            } else {
+                self.active_slide += 1;
+            }
+        }
         self.child_rearrange(windows);
         self.focus_active_requested = true;
     }
@@ -79,6 +89,7 @@ impl Workspace {
                 if first_slide.windows.len() > 0 {
                     self.slides.insert(0, Slide::new(self.new_slide_id));
                     self.new_slide_id += 1;
+                    // TODO: refactor this away
                     for slide in self.slides.iter_mut() {
                         slide.rearrange_required = true;
                     }
@@ -89,6 +100,16 @@ impl Workspace {
                 eprintln!("can't find first slide!");
             }
         } else {
+            // TODO: not strictly needed - should I remove?
+            if let Some(original_slide) = self.slides.get(self.active_slide) {
+                if original_slide.windows.len() == 0 {
+                    self.slides.remove(self.active_slide);
+                    // TODO: refactor this away
+                    for slide in self.slides.iter_mut() {
+                        slide.rearrange_required = true;
+                    }
+                }
+            }
             self.active_slide -= 1;
         }
         self.child_rearrange(windows);

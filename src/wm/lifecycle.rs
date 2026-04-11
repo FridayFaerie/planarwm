@@ -34,6 +34,27 @@ impl WindowManager {
         self.init_new_windows(&config.window);
         self.manage_layout();
         self.manage_windows();
+        // TODO: move this block into its own function?
+        for workspace in self.desktop.workspaces.values_mut() {
+            if workspace.focus_active_requested {
+                let active_slide = &workspace.slides[workspace.active_slide];
+                (self.camera_x, self.camera_y) = active_slide.coord;
+
+                // TODO: add config option to remove this (keyboard focus on slide change)
+                if active_slide.active_window < active_slide.windows.len() {
+                    for seat in self.seats.values_mut() {
+                        seat.focus_window(&active_slide.windows[active_slide.active_window])
+                    }
+                } else if active_slide.windows.len() > 0 {
+                    for seat in self.seats.values_mut() {
+                        // TODO: How do I access the last element of a vec
+                        seat.focus_window(&active_slide.windows.last().unwrap());
+                        // seat.focus_window(&active_slide.windows[active_slide.windows.len() - 1]);
+                    }
+                }
+                workspace.focus_active_requested = false;
+            }
+        }
         proxy.manage_finish();
     }
 
@@ -81,13 +102,6 @@ impl WindowManager {
                         window.set_position(x, y);
                     }
                 }
-            }
-        }
-
-        for workspace in self.desktop.workspaces.values_mut() {
-            if workspace.focus_active_requested {
-                (self.camera_x, self.camera_y) = workspace.slides[workspace.active_slide].coord;
-                workspace.focus_active_requested = false;
             }
         }
 
@@ -159,6 +173,7 @@ impl WindowManager {
                                 slide.windows.retain(|w| w != &window.proxy);
                                 slide.rearrange_required = true;
                                 workspace.child_rearrange_required = true;
+                                workspace.focus_active_requested = true;
                             }
                         }
                     }
