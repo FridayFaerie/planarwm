@@ -135,14 +135,26 @@ impl Seat {
             Action::PrevSlide => {
                 let workspace = desktop.active_workspace_mut();
                 workspace.prev_slide(windows);
-                let coord = workspace.slides[workspace.active_slide].coord;
+                let coord = workspace.slides[workspace.active_slide].position;
                 (*camera_x, *camera_y) = coord;
             }
             Action::NextSlide => {
                 let workspace = desktop.active_workspace_mut();
                 workspace.next_slide(windows);
-                let coord = workspace.slides[workspace.active_slide].coord;
+                let coord = workspace.slides[workspace.active_slide].position;
                 (*camera_x, *camera_y) = (coord.0, coord.1);
+            }
+            Action::PrevWindow => {
+                let workspace = desktop.active_workspace_mut();
+                workspace.focus_active_requested = true;
+                let slide = workspace.active_slide_mut();
+                slide.prev_window();
+            }
+            Action::NextWindow => {
+                let workspace = desktop.active_workspace_mut();
+                workspace.focus_active_requested = true;
+                let slide = workspace.active_slide_mut();
+                slide.next_window();
             }
             Action::Exit => wm_proxy.exit_session(),
         }
@@ -181,6 +193,7 @@ impl Seat {
                 if edges.contains(Edges::Bottom) {
                     height += self.op_dy;
                 }
+                eprintln!("resizing windows, height:{}", height);
                 window_proxy.propose_dimensions(width, height);
             }
         }

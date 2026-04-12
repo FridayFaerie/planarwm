@@ -8,6 +8,7 @@ use crate::wm::utils::Rect;
 pub struct Workspace {
     pub id: String,
     pub coord: (i32, i32),
+    // TODO: remove dimensions, workspace shouldn't have dimensions
     pub dimensions: (i32, i32),
     pub slides: Vec<Slide>,
     pub active_slide: usize,
@@ -18,31 +19,42 @@ pub struct Workspace {
 }
 
 impl Workspace {
+    pub fn new(id: &String) -> Self {
+        Self {
+            id: id.clone(),
+            coord: (0, 0),
+            dimensions: (0, 0),
+            slides: vec![Slide::new(0, (0, 0))],
+            active_slide: 0,
+            child_rearrange_required: true,
+            rearrange_required: true,
+            focus_active_requested: false,
+            new_slide_id: 1,
+        }
+    }
     pub fn rearrange(&mut self) {
         for (index, slide) in self.slides.iter_mut().enumerate() {
-            slide.coord = (
+            slide.position = (
                 self.coord.0,
                 self.coord.1 + (index as i32) * self.dimensions.1,
-            )
-            // hi
+            );
         }
     }
     // TODO: split this into rearrange child's windows within the slide, and to rearrange the
     // slides
+    // TODO: Or just remove this entirely, it's bad
     pub fn child_rearrange(&mut self, windows: &mut HashMap<RiverWindowV1, Window>) {
         for (index, slide) in self.slides.iter_mut().enumerate() {
-            println!(
-                "TODO: rearranging slide {}, for myself at {}",
-                index, self.coord.1
-            );
+            if slide.focus_nearest_required {
+                slide.focus_nearest();
+                slide.focus_nearest_required = false;
+            }
             if slide.rearrange_required {
-                let bounds = Rect {
-                    x: self.coord.0,
-                    y: self.coord.1 + self.dimensions.1 * (index as i32),
-                    width: self.dimensions.0,
-                    height: self.dimensions.1,
-                };
-                slide.compute_targets(bounds, windows);
+                slide.position = (
+                    self.coord.0,
+                    self.coord.1 + self.dimensions.1 * (index as i32),
+                );
+                slide.rearrange(windows);
                 slide.rearrange_required = false;
             }
         }
@@ -60,12 +72,12 @@ impl Workspace {
         if new_slide_index == self.slides.len() {
             if let Some(last_slide) = self.slides.get(self.slides.len() - 1) {
                 if last_slide.windows.len() > 0 {
-                    self.slides.push(Slide::new(self.new_slide_id));
+                    self.slides
+                        .push(Slide::new(self.new_slide_id, self.dimensions));
                     self.new_slide_id += 1;
                 } else {
                     return;
                 }
-            } else {
             }
         }
         if let Some(previous_slide) = self.slides.get(self.active_slide) {
@@ -87,7 +99,8 @@ impl Workspace {
         if self.active_slide == 0 {
             if let Some(first_slide) = self.slides.get(0) {
                 if first_slide.windows.len() > 0 {
-                    self.slides.insert(0, Slide::new(self.new_slide_id));
+                    self.slides
+                        .insert(0, Slide::new(self.new_slide_id, self.dimensions));
                     self.new_slide_id += 1;
                     // TODO: refactor this away
                     for slide in self.slides.iter_mut() {

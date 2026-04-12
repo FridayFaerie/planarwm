@@ -63,6 +63,7 @@ pub struct WindowManager {
     pub outputs: HashMap<ObjectId, Output>,
     pub seats: HashMap<ObjectId, Seat>,
     pub libinput_devices: HashMap<ObjectId, LibinputDevice>,
+    // TODO: combine camera_x/y into one camera_pos tuple
     pub camera_x: i32,
     pub camera_y: i32,
 }
@@ -87,6 +88,7 @@ pub struct Window {
     pub pointer_move_requested: Option<RiverSeatV1>,
     pub pointer_resize_requested: Option<RiverSeatV1>,
     pub pointer_resize_requested_edges: Edges,
+    pub relayout_requested: bool,
     pub maximize_requested: Option<bool>,
 }
 

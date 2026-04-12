@@ -1,4 +1,7 @@
+use crate::Window;
 use crate::wm::HashMap;
+use crate::wm::RiverWindowV1;
+use crate::wm::WindowLocation;
 use crate::wm::slide::{Slide, SlideType};
 use crate::wm::workspace::Workspace;
 
@@ -9,31 +12,34 @@ pub struct Desktop {
 }
 
 impl Desktop {
-    // pub fn new() -> Self {
-    //     let mut workspaces = HashMap::new();
-    //
-    //     let default_id = "default".to_string();
-    //
-    //     // TODO: change to floating
-    //     let default_ws = Workspace {
-    //         id: default_id,
-    //         coord: (0, 0),
-    //         slides: vec![Slide::new(SlideType::Master)],
-    //         active_slide: 0,
-    //     };
-    //
-    //     workspaces.insert(default_id, default_ws);
-    //
-    //     Self {
-    //         workspaces,
-    //         active_workspace: default_id,
-    //     }
-    // }
-
     pub fn active_workspace_mut(&mut self) -> &mut Workspace {
         // TODO: here, I'm just hoping that workspaces have an active workspace :) if this doesn't
         // work, I might need to create a workspace if it doesn't exist
         self.workspaces.get_mut(&self.active_workspace).unwrap()
+    }
+
+    pub fn attach_window(
+        &mut self,
+        window_id: RiverWindowV1,
+        windows: &mut HashMap<RiverWindowV1, Window>,
+    ) {
+        let ws = self.active_workspace_mut();
+        if ws.slides.is_empty() {
+            ws.slides.push(Slide::new(0, ws.dimensions));
+            ws.active_slide = 0;
+        }
+        ws.child_rearrange_required = true;
+        ws.rearrange_required = true;
+
+        let slide = &mut ws.slides[ws.active_slide];
+        slide.attach_window(window_id.clone());
+
+        if let Some(window) = windows.get_mut(&window_id) {
+            window.location = Some(WindowLocation {
+                workspace_id: ws.id.clone(),
+                slide_id: slide.id.clone(),
+            })
+        }
     }
 }
 
@@ -43,22 +49,7 @@ impl Default for Desktop {
 
         let default_id = "default".to_string();
 
-        // TODO: change to floating
-        let default_ws = Workspace {
-            id: default_id.clone(),
-            coord: (0, 0),
-            // TODO: fix
-            dimensions: (1920, 1080),
-            // dimensions: (1280, 720),
-            slides: vec![Slide::new(0)],
-            active_slide: 0,
-            child_rearrange_required: true,
-            rearrange_required: true,
-            focus_active_requested: false,
-            new_slide_id: 1,
-        };
-
-        workspaces.insert(default_id.clone(), default_ws);
+        workspaces.insert(default_id.clone(), Workspace::new(&default_id));
 
         Self {
             workspaces,

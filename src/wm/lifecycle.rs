@@ -34,24 +34,25 @@ impl WindowManager {
         self.init_new_windows(&config.window);
         self.manage_layout();
         self.manage_windows();
+
         // TODO: move this block into its own function?
         for workspace in self.desktop.workspaces.values_mut() {
             if workspace.focus_active_requested {
-                let active_slide = &workspace.slides[workspace.active_slide];
-                (self.camera_x, self.camera_y) = active_slide.coord;
+                let active_slide = &mut workspace.slides[workspace.active_slide];
+                (self.camera_x, self.camera_y) = active_slide.position;
+                // TODO: next_window comes here, can I refactor focus_nearest somewhere else?
+                active_slide.focus_nearest();
+                // TODO: refactor this somewhere else.... this is bad
+                workspace.child_rearrange_required = true;
 
                 // TODO: add config option to remove this (keyboard focus on slide change)
-                if active_slide.active_window < active_slide.windows.len() {
+                // TODO: idt I should do this weird check
+                if active_slide.windows.len() > 0 {
                     for seat in self.seats.values_mut() {
                         seat.focus_window(&active_slide.windows[active_slide.active_window])
                     }
-                } else if active_slide.windows.len() > 0 {
-                    for seat in self.seats.values_mut() {
-                        // TODO: How do I access the last element of a vec
-                        seat.focus_window(&active_slide.windows.last().unwrap());
-                        // seat.focus_window(&active_slide.windows[active_slide.windows.len() - 1]);
-                    }
                 }
+
                 workspace.focus_active_requested = false;
             }
         }
@@ -114,27 +115,6 @@ impl WindowManager {
         proxy.render_finish();
     }
 
-    fn attach_window_to_active_slide(&mut self, window_id: RiverWindowV1) {
-        let ws = self.desktop.active_workspace_mut();
-        if ws.slides.is_empty() {
-            ws.slides.push(Slide::new(0));
-            ws.active_slide = 0;
-        }
-        ws.child_rearrange_required = true;
-        ws.rearrange_required = true;
-
-        let slide = &mut ws.slides[ws.active_slide];
-        slide.attach_window(window_id.clone());
-
-        if let Some(window) = self.windows.get_mut(&window_id) {
-            eprintln!("TODO: slide id is {}", slide.id);
-            window.location = Some(WindowLocation {
-                workspace_id: ws.id.clone(),
-                slide_id: slide.id.clone(),
-            })
-        }
-    }
-
     pub fn remove_outputs(&mut self) {
         self.outputs.retain(|_, output| {
             if output.removed {
@@ -172,6 +152,7 @@ impl WindowManager {
                             {
                                 slide.windows.retain(|w| w != &window.proxy);
                                 slide.rearrange_required = true;
+                                slide.focus_nearest_required = true;
                                 workspace.child_rearrange_required = true;
                                 workspace.focus_active_requested = true;
                             }
@@ -213,7 +194,8 @@ impl WindowManager {
             .map(|(id, _)| id.clone())
             .collect();
         for window_id in new_window_ids {
-            self.attach_window_to_active_slide(window_id.clone());
+            self.desktop
+                .attach_window(window_id.clone(), &mut self.windows);
             if let Some(window) = self.windows.get_mut(&window_id) {
                 window.proxy.propose_dimensions(window.width, window.height);
                 if window_config.force_ssd {
@@ -297,6 +279,20 @@ impl WindowManager {
                     .expect("Seat {seat_proxy.id()} not found");
                 seat.pointer_resize(window, window.pointer_resize_requested_edges);
             }
+            // TODO: move to before manage_layout
+            // maybe check windows' flags -> manage layout -> render windows?
+            if window.relayout_requested {
+                let location = window.location.as_ref().unwrap();
+                self.desktop
+                    .workspaces
+                    .get_mut(&location.workspace_id)
+                    .unwrap()
+                    .slides
+                    .iter_mut()
+                    .find(|s| s.id == location.slide_id)
+                    .unwrap()
+                    .rearrange_required = true;
+            }
             if let Some(maximize) = window.maximize_requested.take() {
                 if maximize {
                     let Some((width, height)) = self.outputs.values().find_map(|output| {
@@ -347,11 +343,15 @@ impl WindowManager {
                         .position(|s| s.id == location.slide_id)
                         .expect("oops can't find slide");
 
-                    eprintln!(
-                        "TODO: window was just interacted with! slide id is: {}, and active slide is {}",
-                        location.slide_id, workspace.active_slide
-                    );
-                    (*camera_x, *camera_y) = workspace.slides[workspace.active_slide].coord;
+                    if let Some(slide) = workspace.slides.get_mut(workspace.active_slide) {
+                        (*camera_x, *camera_y) = slide.position;
+                        slide.active_window = slide
+                            .windows
+                            .iter()
+                            .position(|w| w == &window_proxy)
+                            .expect("can't find active window");
+                        slide.rearrange(windows);
+                    }
                 }
             }
 

@@ -15,6 +15,8 @@ pub enum Action {
     ToggleMaximize,
     NextSlide,
     PrevSlide,
+    NextWindow,
+    PrevWindow,
     Exit,
 }
 
@@ -67,6 +69,8 @@ pub fn parse_action(keyword: &str) -> Option<Action> {
         "maximize" => Some(Action::ToggleMaximize),
         "next_slide" => Some(Action::NextSlide),
         "prev_slide" => Some(Action::PrevSlide),
+        "next_window" => Some(Action::NextWindow),
+        "prev_window" => Some(Action::PrevWindow),
         "exit" => Some(Action::Exit),
         _ if keyword.starts_with("spawn ") => {
             let rest = &keyword["spawn ".len()..];

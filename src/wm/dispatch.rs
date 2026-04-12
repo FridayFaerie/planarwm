@@ -181,6 +181,7 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
             Event::Dimensions { width, height } => {
                 window.width = width;
                 window.height = height;
+                window.relayout_requested = true;
             }
             Event::AppId { app_id: _ } => {}
             Event::Title { title } => window.title = title.unwrap(),
@@ -239,6 +240,12 @@ impl Dispatch<RiverOutputV1, ()> for AppData {
             Event::Position { x, y } => output.position = Some((x, y)),
             Event::Dimensions { width, height } => {
                 output.dimensions = Some((width, height));
+                for workspace in state.wm.desktop.workspaces.values_mut() {
+                    workspace.dimensions = (width, height);
+                    for slide in workspace.slides.iter_mut() {
+                        slide.dimensions = (width, height);
+                    }
+                }
             }
         }
     }

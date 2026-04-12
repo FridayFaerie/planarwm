@@ -16,21 +16,25 @@ pub enum SlideType {
 pub struct Slide {
     pub id: u16,
     pub slide_type: SlideType,
-    pub coord: (i32, i32),
+    pub position: (i32, i32),
+    pub dimensions: (i32, i32),
     pub windows: Vec<RiverWindowV1>,
     pub active_window: usize,
     pub rearrange_required: bool,
+    pub focus_nearest_required: bool,
 }
 
 impl Slide {
-    pub fn new(id: u16) -> Self {
+    pub fn new(id: u16, dimensions: (i32, i32)) -> Self {
         Self {
             id: id,
-            slide_type: SlideType::Master,
-            coord: (0, 0),
+            slide_type: SlideType::VerticalScroll,
+            position: (0, 0),
+            dimensions: dimensions,
             windows: Vec::new(),
             active_window: 0,
             rearrange_required: true,
+            focus_nearest_required: false,
         }
     }
 
@@ -43,14 +47,80 @@ impl Slide {
         self.active_window = self.windows.len() - 1;
     }
 
-    pub fn compute_targets(&self, bounds: Rect, windows: &mut HashMap<RiverWindowV1, Window>) {
+    pub fn focus_nearest(&mut self) {
+        if self.active_window >= self.windows.len() && self.active_window != 0 {
+            self.active_window = self.windows.len() - 1;
+        }
+    }
+
+    // TODO: add config to loop?
+    pub fn next_window(&mut self) {
+        if self.active_window < self.windows.len() + 1 {
+            self.active_window += 1;
+        }
+    }
+
+    pub fn prev_window(&mut self) {
+        if self.active_window > 0 {
+            self.active_window -= 1;
+        }
+    }
+
+    pub fn rearrange(&self, windows: &mut HashMap<RiverWindowV1, Window>) {
+        let bounds = Rect {
+            x: self.position.0,
+            y: self.position.1,
+            width: self.dimensions.0,
+            height: self.dimensions.1,
+        };
         match self.slide_type {
-            SlideType::Master => self.compute_master_targets(bounds, windows),
+            SlideType::Master => self.master_rearrange(bounds, windows),
+            SlideType::VerticalScroll => self.vertscroll_rearrange(bounds, windows),
             _ => {}
         }
     }
 
-    fn compute_master_targets(&self, bounds: Rect, windows: &mut HashMap<RiverWindowV1, Window>) {
+    fn vertscroll_rearrange(&self, bounds: Rect, windows: &mut HashMap<RiverWindowV1, Window>) {
+        let slide_size = self.windows.len();
+        let outer_gaps = 10;
+        let inner_gaps = 5;
+        let window_width = bounds.width - 2 * outer_gaps;
+        let window_height = bounds.height - 2 * outer_gaps;
+
+        if slide_size == 0 {
+            return;
+        };
+
+        let active_index = self.active_window;
+
+        for i in 0..active_index {
+            let window = windows
+                .get_mut(&self.windows[i])
+                .expect("can't find window");
+            window.set_target_geometry(Rect {
+                x: (bounds.x + outer_gaps)
+                    + (window_width + inner_gaps) * (i as i32 - active_index as i32),
+                y: bounds.y + outer_gaps,
+                width: window_width,
+                height: window_height,
+            });
+        }
+
+        for i in active_index..self.windows.len() {
+            let window = windows
+                .get_mut(&self.windows[i])
+                .expect("can't find window");
+            window.set_target_geometry(Rect {
+                x: (bounds.x + outer_gaps)
+                    + (window_width + inner_gaps) * (i as i32 - active_index as i32),
+                y: bounds.y + outer_gaps,
+                width: window_width,
+                height: window_height,
+            });
+        }
+    }
+
+    fn master_rearrange(&self, bounds: Rect, windows: &mut HashMap<RiverWindowV1, Window>) {
         let slide_size = self.windows.len();
         if slide_size == 0 {
             return;

@@ -24,6 +24,7 @@ impl Window {
             pointer_move_requested: None,
             pointer_resize_requested: None,
             pointer_resize_requested_edges: Edges::None,
+            relayout_requested: true,
             maximize_requested: None,
         }
     }
