@@ -27,10 +27,10 @@ pub struct Slide {
 impl Slide {
     pub fn new(id: u16, dimensions: (i32, i32)) -> Self {
         Self {
-            id: id,
+            id,
             slide_type: SlideType::VerticalScroll,
             position: (0, 0),
-            dimensions: dimensions,
+            dimensions,
             windows: Vec::new(),
             active_window: 0,
             rearrange_required: true,
@@ -90,8 +90,8 @@ impl Slide {
 
     fn vertscroll_rearrange(&self, bounds: Rect, windows: &mut HashMap<RiverWindowV1, Window>) {
         let slide_size = self.windows.len();
-        let outer_gaps = 10;
-        let inner_gaps = 5;
+        let outer_gaps = 20;
+        let inner_gaps = 10;
         let window_width = bounds.width - 2 * outer_gaps;
         let window_height = bounds.height - 2 * outer_gaps;
 

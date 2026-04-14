@@ -5,13 +5,3 @@ pub struct Rect {
     pub width: i32,
     pub height: i32,
 }
-
-impl Rect {
-    pub fn offset(self, dx: i32, dy: i32) -> Self {
-        Self {
-            x: self.x + dx,
-            y: self.y + dy,
-            ..self
-        }
-    }
-}

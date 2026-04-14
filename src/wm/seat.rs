@@ -144,8 +144,6 @@ impl Seat {
                 let coord = workspace.slides[workspace.active_slide].position;
                 (*camera_x, *camera_y) = (coord.0, coord.1);
             }
-            // TODO: this is very slow. I suspect focus_active_requested is checked muuuuch later
-            // than it can be?
             Action::PrevWindow => {
                 let workspace = desktop.active_workspace_mut();
                 workspace.focus_active_requested = true;

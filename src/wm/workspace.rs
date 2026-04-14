@@ -2,7 +2,6 @@ use crate::Window;
 use crate::wm::HashMap;
 use crate::wm::RiverWindowV1;
 use crate::wm::slide::Slide;
-use crate::wm::utils::Rect;
 
 #[derive(Debug, Default)]
 pub struct Workspace {
@@ -19,9 +18,9 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn new(id: &String) -> Self {
+    pub fn new(id: &str) -> Self {
         Self {
-            id: id.clone(),
+            id: id.to_owned(),
             coord: (0, 0),
             dimensions: (0, 0),
             slides: vec![Slide::new(0, (0, 0))],
@@ -65,23 +64,25 @@ impl Workspace {
         self.slides.get_mut(self.active_slide).unwrap()
     }
 
+    // TODO: when next_slide without any windows, remove the slide. Alternatively, remove slide on
+    // window delete
     // TODO: what is this mess of if else
     // TODO: surely these functions don't need the global window?
     pub fn next_slide(&mut self, windows: &mut HashMap<RiverWindowV1, Window>) {
         let new_slide_index = self.active_slide + 1;
-        if new_slide_index == self.slides.len() {
-            if let Some(last_slide) = self.slides.get(self.slides.len() - 1) {
-                if last_slide.windows.len() > 0 {
-                    self.slides
-                        .push(Slide::new(self.new_slide_id, self.dimensions));
-                    self.new_slide_id += 1;
-                } else {
-                    return;
-                }
+        if new_slide_index == self.slides.len()
+            && let Some(last_slide) = self.slides.last()
+        {
+            if !last_slide.windows.is_empty() {
+                self.slides
+                    .push(Slide::new(self.new_slide_id, self.dimensions));
+                self.new_slide_id += 1;
+            } else {
+                return;
             }
         }
         if let Some(previous_slide) = self.slides.get(self.active_slide) {
-            if previous_slide.windows.len() == 0 {
+            if previous_slide.windows.is_empty() {
                 self.slides.remove(self.active_slide);
                 // TODO: refactor this away
                 for slide in self.slides.iter_mut() {
@@ -97,8 +98,8 @@ impl Workspace {
 
     pub fn prev_slide(&mut self, windows: &mut HashMap<RiverWindowV1, Window>) {
         if self.active_slide == 0 {
-            if let Some(first_slide) = self.slides.get(0) {
-                if first_slide.windows.len() > 0 {
+            if let Some(first_slide) = self.slides.first() {
+                if !first_slide.windows.is_empty() {
                     self.slides
                         .insert(0, Slide::new(self.new_slide_id, self.dimensions));
                     self.new_slide_id += 1;
@@ -114,13 +115,13 @@ impl Workspace {
             }
         } else {
             // TODO: not strictly needed - should I remove?
-            if let Some(original_slide) = self.slides.get(self.active_slide) {
-                if original_slide.windows.len() == 0 {
-                    self.slides.remove(self.active_slide);
-                    // TODO: refactor this away
-                    for slide in self.slides.iter_mut() {
-                        slide.rearrange_required = true;
-                    }
+            if let Some(original_slide) = self.slides.get(self.active_slide)
+                && original_slide.windows.is_empty()
+            {
+                self.slides.remove(self.active_slide);
+                // TODO: refactor this away
+                for slide in self.slides.iter_mut() {
+                    slide.rearrange_required = true;
                 }
             }
             self.active_slide -= 1;

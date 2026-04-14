@@ -1,9 +1,5 @@
-use core::time;
-use std::thread::sleep;
-
 use super::{SeatOp, WindowManager};
 use crate::AppData;
-use crate::Window;
 use crate::actions::{Action, parse_action, parse_keysym, parse_modifiers};
 use crate::config::{Config, WindowConfig};
 use crate::protocol::river::wayland_client::Proxy;
@@ -12,8 +8,6 @@ use crate::river::{
     river_window_v1::Edges, river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
 use crate::wm::RiverWindowV1;
-use crate::wm::slide::Slide;
-use crate::wm::window::WindowLocation;
 use wayland_client::QueueHandle;
 
 impl WindowManager {
@@ -42,18 +36,18 @@ impl WindowManager {
                 (self.camera_x, self.camera_y) = active_slide.position;
                 // TODO: next_window comes here, can I refactor focus_nearest somewhere else?
                 active_slide.focus_nearest();
-                // TODO: refactor this somewhere else.... this is bad
-                workspace.child_rearrange_required = true;
 
                 // TODO: add config option to remove this (keyboard focus on slide change)
                 // TODO: idt I should do this weird check
-                if active_slide.windows.len() > 0 {
+                if !active_slide.windows.is_empty() {
                     for seat in self.seats.values_mut() {
                         seat.focus_window(&active_slide.windows[active_slide.active_window])
                     }
                 }
 
                 workspace.focus_active_requested = false;
+
+                workspace.child_rearrange(&mut self.windows);
             }
         }
         proxy.manage_finish();
@@ -144,19 +138,16 @@ impl WindowManager {
                         }
                     }
 
-                    if let Some(loc) = &window.location {
-                        if let Some(workspace) = self.desktop.workspaces.get_mut(&loc.workspace_id)
-                        {
-                            if let Some(slide) =
-                                workspace.slides.iter_mut().find(|s| s.id == loc.slide_id)
-                            {
-                                slide.windows.retain(|w| w != &window.proxy);
-                                slide.rearrange_required = true;
-                                slide.focus_nearest_required = true;
-                                workspace.child_rearrange_required = true;
-                                workspace.focus_active_requested = true;
-                            }
-                        }
+                    if let Some(loc) = &window.location
+                        && let Some(workspace) = self.desktop.workspaces.get_mut(&loc.workspace_id)
+                        && let Some(slide) =
+                            workspace.slides.iter_mut().find(|s| s.id == loc.slide_id)
+                    {
+                        slide.windows.retain(|w| w != &window.proxy);
+                        slide.rearrange_required = true;
+                        slide.focus_nearest_required = true;
+                        workspace.child_rearrange_required = true;
+                        workspace.focus_active_requested = true;
                     }
 
                     return false;
@@ -185,6 +176,7 @@ impl WindowManager {
         });
     }
 
+    // TODO: new windows init with slide dimensions, not window dimensions
     pub fn init_new_windows(&mut self, window_config: &WindowConfig) {
         // TODO: this seems weird, is there a better way
         let new_window_ids: Vec<RiverWindowV1> = self
@@ -382,14 +374,6 @@ impl WindowManager {
 
     pub fn manage_layout(&mut self) {
         // TODO: I don't like this code - fix this
-        let Some(output) = self.outputs.values().find(|o| !o.removed) else {
-            return;
-        };
-
-        let Some(bounds) = output.bounds() else {
-            return;
-        };
-
         for workspace in self.desktop.workspaces.values_mut() {
             if workspace.rearrange_required {
                 workspace.rearrange();

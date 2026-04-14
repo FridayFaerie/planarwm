@@ -1,4 +1,3 @@
-use crate::wm::slide::SlideType;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -17,21 +16,6 @@ pub struct Config {
 pub struct WindowConfig {
     #[serde(default)]
     pub force_ssd: bool,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-pub struct WorkspaceConfig {
-    pub id: String,
-    #[serde(default)]
-    pub coord: (i32, i32),
-    #[serde(default)]
-    pub slides: Vec<SlideConfig>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-pub struct SlideConfig {
-    #[serde(default)]
-    pub slide_type: SlideType,
 }
 
 fn config_path() -> PathBuf {

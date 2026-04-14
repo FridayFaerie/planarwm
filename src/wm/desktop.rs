@@ -2,7 +2,7 @@ use crate::Window;
 use crate::wm::HashMap;
 use crate::wm::RiverWindowV1;
 use crate::wm::WindowLocation;
-use crate::wm::slide::{Slide, SlideType};
+use crate::wm::slide::Slide;
 use crate::wm::workspace::Workspace;
 
 #[derive(Debug)]
@@ -37,7 +37,7 @@ impl Desktop {
         if let Some(window) = windows.get_mut(&window_id) {
             window.location = Some(WindowLocation {
                 workspace_id: ws.id.clone(),
-                slide_id: slide.id.clone(),
+                slide_id: slide.id,
             })
         }
     }

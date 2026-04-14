@@ -63,7 +63,9 @@ pub struct WindowManager {
     pub outputs: HashMap<ObjectId, Output>,
     pub seats: HashMap<ObjectId, Seat>,
     pub libinput_devices: HashMap<ObjectId, LibinputDevice>,
+
     // TODO: combine camera_x/y into one camera_pos tuple
+    // Also, this should very much come with dimensions (I think)
     pub camera_x: i32,
     pub camera_y: i32,
 }
