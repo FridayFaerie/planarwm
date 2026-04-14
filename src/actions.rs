@@ -17,6 +17,7 @@ pub enum Action {
     PrevSlide,
     NextWindow,
     PrevWindow,
+    CycleTiling,
     Exit,
 }
 
@@ -71,6 +72,7 @@ pub fn parse_action(keyword: &str) -> Option<Action> {
         "prev_slide" => Some(Action::PrevSlide),
         "next_window" => Some(Action::NextWindow),
         "prev_window" => Some(Action::PrevWindow),
+        "cycle_tiling" => Some(Action::CycleTiling),
         "exit" => Some(Action::Exit),
         _ if keyword.starts_with("spawn ") => {
             let rest = &keyword["spawn ".len()..];

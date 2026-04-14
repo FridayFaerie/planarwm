@@ -2,7 +2,7 @@ use crate::Window;
 use crate::wm::{HashMap, RiverWindowV1, utils::Rect};
 use serde::Deserialize;
 
-#[derive(Debug, Clone, Copy, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq)]
 pub enum SlideType {
     #[default]
     Master,
@@ -63,6 +63,14 @@ impl Slide {
     pub fn prev_window(&mut self) {
         if self.active_window > 0 {
             self.active_window -= 1;
+        }
+    }
+
+    pub fn cycle_tiling(&mut self) {
+        if self.slide_type == SlideType::VerticalScroll {
+            self.slide_type = SlideType::Master
+        } else if self.slide_type == SlideType::Master {
+            self.slide_type = SlideType::VerticalScroll
         }
     }
 
