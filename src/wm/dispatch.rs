@@ -184,7 +184,11 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
                 window.relayout_requested = true;
             }
             Event::AppId { app_id: _ } => {}
-            Event::Title { title } => window.title = title.unwrap(),
+            Event::Title { title } => {
+                if let Some(window_title) = title {
+                    window.title = window_title;
+                }
+            }
             Event::Parent { parent: _ } => {}
             Event::DecorationHint { hint: _ } => {}
             Event::PointerMoveRequested { seat } => window.pointer_move_requested = Some(seat),
