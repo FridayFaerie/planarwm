@@ -257,26 +257,21 @@ impl Dispatch<RiverOutputV1, ()> for AppData {
 
 impl Dispatch<RiverLayerShellOutputV1, ObjectId> for AppData {
     fn event(
-        state: &mut Self,
+        _state: &mut Self,
         _proxy: &RiverLayerShellOutputV1,
         event: <RiverLayerShellOutputV1 as Proxy>::Event,
-        data: &ObjectId,
+        _data: &ObjectId,
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
     ) {
         use river::river_layer_shell_output_v1::Event;
-        let output = state
-            .wm
-            .outputs
-            .get_mut(data)
-            .expect("Output {proxy.id()} not found");
         match event {
             Event::NonExclusiveArea {
-                x,
-                y,
-                width,
-                height,
-            } => output.usable = Some((x, y, width, height)),
+                x: _,
+                y: _,
+                width: _,
+                height: _,
+            } => {}
         }
     }
 }

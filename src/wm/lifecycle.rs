@@ -58,8 +58,8 @@ impl WindowManager {
             match &seat.op {
                 SeatOp::None => {}
                 SeatOp::Pan { start_x, start_y } => {
-                    self.camera_x = start_x - seat.op_dx;
-                    self.camera_y = start_y - seat.op_dy;
+                    self.camera_x = start_x - seat.op_dx * 2;
+                    self.camera_y = start_y - seat.op_dy * 2;
                 }
                 SeatOp::Move {
                     window_proxy,

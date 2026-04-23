@@ -66,6 +66,7 @@ pub struct WindowManager {
 
     // TODO: combine camera_x/y into one camera_pos tuple
     // Also, this should very much come with dimensions (I think)
+    // maybe move into Output?
     pub camera_x: i32,
     pub camera_y: i32,
 }
@@ -105,9 +106,10 @@ pub struct Output {
     pub proxy: RiverOutputV1,
     pub removed: bool,
     pub layer: Option<RiverLayerShellOutputV1>,
+    // node
     pub position: Option<(i32, i32)>,
     pub dimensions: Option<(i32, i32)>,
-    pub usable: Option<(i32, i32, i32, i32)>,
+    // logical
 }
 
 #[derive(Debug)]

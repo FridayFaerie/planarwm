@@ -9,7 +9,6 @@ impl Output {
             layer: None,
             position: None,
             dimensions: None,
-            usable: None,
         }
     }
 }
