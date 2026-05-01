@@ -64,6 +64,46 @@ impl Workspace {
         self.slides.get_mut(self.active_slide).unwrap()
     }
 
+    pub fn moveto_next_slide(&mut self, windows: &mut HashMap<RiverWindowV1, Window>) {
+        let active_slide = self
+            .slides
+            .get_mut(self.active_slide)
+            .unwrap_or_else(|| panic!("can't find active slide!!"));
+        let window_id = active_slide.windows.remove(active_slide.active_window);
+        active_slide.rearrange_required = true;
+        self.child_rearrange_required = true;
+        self.next_slide(windows);
+        let active_slide = self
+            .slides
+            .get_mut(self.active_slide)
+            .unwrap_or_else(|| panic!("can't find the active slide"));
+        active_slide.attach_window(window_id.clone());
+
+        if let Some(window) = windows.get_mut(&window_id) {
+            window.location.as_mut().unwrap().slide_id = active_slide.id;
+        }
+    }
+
+    pub fn moveto_prev_slide(&mut self, windows: &mut HashMap<RiverWindowV1, Window>) {
+        let active_slide = self
+            .slides
+            .get_mut(self.active_slide)
+            .unwrap_or_else(|| panic!("can't find active slide!!"));
+        let window_id = active_slide.windows.remove(active_slide.active_window);
+        active_slide.rearrange_required = true;
+        self.child_rearrange_required = true;
+        self.prev_slide(windows);
+        let active_slide = self
+            .slides
+            .get_mut(self.active_slide)
+            .unwrap_or_else(|| panic!("can't find the active slide"));
+        active_slide.attach_window(window_id.clone());
+
+        if let Some(window) = windows.get_mut(&window_id) {
+            window.location.as_mut().unwrap().slide_id = active_slide.id;
+        }
+    }
+
     // TODO: when next_slide without any windows, remove the slide. Alternatively, remove slide on
     // window delete
     // TODO: what is this mess of if else

@@ -15,6 +15,7 @@ pub fn spawn_program(program: &str, args: &[&str]) {
     }
 }
 
+// TODO: check if this shell closes if wm closes
 pub fn spawn_shell(command: &str) {
     match std::process::Command::new("sh")
         .arg("-c")
@@ -22,7 +23,6 @@ pub fn spawn_shell(command: &str) {
         .env_remove("WAYLAND_DEBUG")
         .spawn()
     {
-        // Ok(_) => println!("planrwm: ran shell command {command}"),
         Ok(_) => {}
         Err(e) => eprintln!("planarwm: Failed to run shell command '{command}': {e}"),
     }

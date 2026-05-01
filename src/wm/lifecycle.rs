@@ -196,6 +196,7 @@ impl WindowManager {
                 window.proxy.inform_maximized();
                 window.new = false;
                 window.node.place_top();
+                // window.proxy.set_borders(Edges::all(), 3, 4294967295, 0, 0, 4294967295);
                 for seat in self.seats.values_mut() {
                     seat.focus_window(&window_id)
                 }

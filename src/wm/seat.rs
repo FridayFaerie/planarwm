@@ -138,6 +138,18 @@ impl Seat {
                 let coord = workspace.slides[workspace.active_slide].position;
                 (*camera_x, *camera_y) = coord;
             }
+            Action::MoveToNextSlide => {
+                let workspace = desktop.active_workspace_mut();
+                workspace.moveto_next_slide(windows);
+                let coord = workspace.slides[workspace.active_slide].position;
+                (*camera_x, *camera_y) = (coord.0, coord.1);
+            }
+            Action::MoveToPrevSlide => {
+                let workspace = desktop.active_workspace_mut();
+                workspace.moveto_prev_slide(windows);
+                let coord = workspace.slides[workspace.active_slide].position;
+                (*camera_x, *camera_y) = (coord.0, coord.1);
+            }
             Action::NextSlide => {
                 let workspace = desktop.active_workspace_mut();
                 workspace.next_slide(windows);
