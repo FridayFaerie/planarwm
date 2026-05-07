@@ -6,10 +6,10 @@ use serde::Deserialize;
 pub enum SlideType {
     #[default]
     Master,
-    Dwindle,
+    // Dwindle,
     Floating,
     VerticalScroll,
-    HorizontalScroll,
+    // HorizontalScroll,
 }
 
 #[derive(Debug, Default)]
@@ -70,6 +70,8 @@ impl Slide {
         if self.slide_type == SlideType::VerticalScroll {
             self.slide_type = SlideType::Master
         } else if self.slide_type == SlideType::Master {
+            self.slide_type = SlideType::Floating
+        } else if self.slide_type == SlideType::Floating {
             self.slide_type = SlideType::VerticalScroll
         }
     }

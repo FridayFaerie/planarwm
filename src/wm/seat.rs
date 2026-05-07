@@ -209,7 +209,6 @@ impl Seat {
                 if edges.contains(Edges::Bottom) {
                     height += self.op_dy;
                 }
-                eprintln!("resizing windows, height:{}", height);
                 window_proxy.propose_dimensions(width, height);
             }
         }

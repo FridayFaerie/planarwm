@@ -8,6 +8,7 @@ use crate::river::{
     river_window_v1::Edges, river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
 use crate::wm::RiverWindowV1;
+use crate::wm::slide::SlideType;
 use wayland_client::QueueHandle;
 
 impl WindowManager {
@@ -337,7 +338,9 @@ impl WindowManager {
                         .expect("oops can't find slide");
 
                     if let Some(slide) = workspace.slides.get_mut(workspace.active_slide) {
-                        (*camera_x, *camera_y) = slide.position;
+                        if slide.slide_type != SlideType::Floating {
+                            (*camera_x, *camera_y) = slide.position;
+                        }
                         slide.active_window = slide
                             .windows
                             .iter()
