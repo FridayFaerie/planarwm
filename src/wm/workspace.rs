@@ -39,26 +39,6 @@ impl Workspace {
             );
         }
     }
-    // TODO: split this into rearrange child's windows within the slide, and to rearrange the
-    // slides
-    // TODO: Or just remove this entirely, it's bad
-    pub fn child_rearrange(&mut self, windows: &mut HashMap<RiverWindowV1, Window>) {
-        for (index, slide) in self.slides.iter_mut().enumerate() {
-            if slide.focus_nearest_required {
-                slide.focus_nearest();
-                slide.focus_nearest_required = false;
-            }
-            if slide.rearrange_required {
-                slide.position = (
-                    self.coord.0,
-                    self.coord.1 + self.dimensions.1 * (index as i32),
-                );
-                slide.rearrange(windows);
-                slide.rearrange_required = false;
-            }
-        }
-        self.child_rearrange_required = false;
-    }
 
     pub fn active_slide_mut(&mut self) -> &mut Slide {
         self.slides.get_mut(self.active_slide).unwrap()
@@ -132,7 +112,7 @@ impl Workspace {
                 self.active_slide += 1;
             }
         }
-        self.child_rearrange(windows);
+        self.child_rearrange_required = true;
         self.focus_active_requested = true;
     }
 
@@ -166,7 +146,7 @@ impl Workspace {
             }
             self.active_slide -= 1;
         }
-        self.child_rearrange(windows);
+        self.child_rearrange_required = true;
         self.focus_active_requested = true;
     }
 }

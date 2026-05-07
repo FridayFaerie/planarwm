@@ -76,7 +76,8 @@ impl Slide {
         }
     }
 
-    pub fn rearrange(&self, windows: &mut HashMap<RiverWindowV1, Window>) {
+    // TODO: all references would need to send this vec to queue somehow
+    pub fn rearrange(&self) -> Vec<(RiverWindowV1, Option<Rect>)> {
         let bounds = Rect {
             x: self.position.0,
             y: self.position.1,
@@ -84,56 +85,62 @@ impl Slide {
             height: self.dimensions.1,
         };
         match self.slide_type {
-            SlideType::Master => self.master_rearrange(bounds, windows),
-            SlideType::VerticalScroll => self.vertscroll_rearrange(bounds, windows),
-            _ => {}
+            SlideType::Master => self.master_rearrange(bounds),
+            SlideType::VerticalScroll => self.vertscroll_rearrange(bounds),
+            _ => Vec::new(),
         }
     }
 
-    fn vertscroll_rearrange(&self, bounds: Rect, windows: &mut HashMap<RiverWindowV1, Window>) {
+    fn vertscroll_rearrange(&self, bounds: Rect) -> Vec<(RiverWindowV1, Option<Rect>)> {
         let slide_size = self.windows.len();
         let outer_gaps = 20;
         let inner_gaps = 10;
         let window_width = bounds.width - 2 * outer_gaps;
         let window_height = bounds.height - 2 * outer_gaps;
 
+        let mut out = Vec::new();
+
         if slide_size == 0 {
-            return;
+            return out;
         };
 
         let active_index = self.active_window;
 
-        for i in 0..active_index {
-            let window = windows
-                .get_mut(&self.windows[i])
-                .expect("can't find window");
-            window.set_target_geometry(Rect {
-                x: (bounds.x + outer_gaps)
-                    + (window_width + inner_gaps) * (i as i32 - active_index as i32),
-                y: bounds.y + outer_gaps,
-                width: window_width,
-                height: window_height,
-            });
+        for index in 0..active_index {
+            out.push((
+                self.windows[index].clone(),
+                Some(Rect {
+                    x: (bounds.x + outer_gaps)
+                        + (window_width + inner_gaps) * (index as i32 - active_index as i32),
+                    y: bounds.y + outer_gaps,
+                    width: window_width,
+                    height: window_height,
+                }),
+            ));
         }
 
-        for i in active_index..self.windows.len() {
-            let window = windows
-                .get_mut(&self.windows[i])
-                .expect("can't find window");
-            window.set_target_geometry(Rect {
-                x: (bounds.x + outer_gaps)
-                    + (window_width + inner_gaps) * (i as i32 - active_index as i32),
-                y: bounds.y + outer_gaps,
-                width: window_width,
-                height: window_height,
-            });
+        for index in active_index..self.windows.len() {
+            out.push((
+                self.windows[index].clone(),
+                Some(Rect {
+                    x: (bounds.x + outer_gaps)
+                        + (window_width + inner_gaps) * (index as i32 - active_index as i32),
+                    y: bounds.y + outer_gaps,
+                    width: window_width,
+                    height: window_height,
+                }),
+            ));
         }
+
+        out
     }
 
-    fn master_rearrange(&self, bounds: Rect, windows: &mut HashMap<RiverWindowV1, Window>) {
+    fn master_rearrange(&self, bounds: Rect) -> Vec<(RiverWindowV1, Option<Rect>)> {
         let slide_size = self.windows.len();
+        let mut out = Vec::new();
+
         if slide_size == 0 {
-            return;
+            return out;
         }
 
         let master_w = if slide_size > 1 {
@@ -142,29 +149,32 @@ impl Slide {
             bounds.width
         };
 
-        for (i, window_id) in self.windows.iter().enumerate() {
-            let Some(window) = windows.get_mut(window_id) else {
-                continue;
-            };
-
-            if i == 0 {
-                window.set_target_geometry(Rect {
-                    x: bounds.x,
-                    y: bounds.y,
-                    width: master_w,
-                    height: bounds.height,
-                });
+        for (index, _) in self.windows.iter().enumerate() {
+            if index == 0 {
+                out.push((
+                    self.windows[index].clone(),
+                    Some(Rect {
+                        x: bounds.x,
+                        y: bounds.y,
+                        width: master_w,
+                        height: bounds.height,
+                    }),
+                ));
             } else {
                 let stack_size = (slide_size - 1) as i32;
                 let stack_h = bounds.height / stack_size;
 
-                window.set_target_geometry(Rect {
-                    x: bounds.x + master_w,
-                    y: bounds.y + ((i as i32 - 1) * stack_h),
-                    width: bounds.width - master_w,
-                    height: stack_h,
-                });
+                out.push((
+                    self.windows[index].clone(),
+                    Some(Rect {
+                        x: bounds.x + master_w,
+                        y: bounds.y + ((index as i32 - 1) * stack_h),
+                        width: bounds.width - master_w,
+                        height: stack_h,
+                    }),
+                ));
             }
         }
+        out
     }
 }

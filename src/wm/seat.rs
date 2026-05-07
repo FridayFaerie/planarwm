@@ -10,7 +10,8 @@ use crate::river::{
     river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
 use crate::wm::desktop::Desktop;
-use std::collections::HashMap;
+use crate::wm::task::Task;
+use std::collections::{HashMap, VecDeque};
 use wayland_backend::client::ObjectId;
 use wayland_client::QueueHandle;
 
@@ -69,6 +70,7 @@ impl Seat {
     // NOTE: this is the stuff that happens on keybinding
     pub fn do_action(
         &mut self,
+        queue: &mut VecDeque<Task>,
         desktop: &mut Desktop,
         windows: &mut HashMap<RiverWindowV1, Window>,
         outputs: &HashMap<ObjectId, Output>,
@@ -124,12 +126,10 @@ impl Seat {
                 }
             }
             Action::ToggleMaximize => {
-                if let Some(window_proxy) = self.focused.as_ref()
-                    && let Some(window) = windows
-                        .values_mut()
-                        .find(|window| &window.proxy == window_proxy)
-                {
-                    window.maximize_requested = Some(window.unmaximized_geometry.is_none());
+                if let Some(window_proxy) = self.focused.clone() {
+                    queue.push_back(Task::MaximizeWindow {
+                        window_id: window_proxy,
+                    });
                 }
             }
             Action::PrevSlide => {

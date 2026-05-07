@@ -8,10 +8,26 @@ use crate::river::{
     river_window_v1::Edges, river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
 use crate::wm::RiverWindowV1;
+use crate::wm::VecDeque;
 use crate::wm::slide::SlideType;
+use crate::wm::task::{Phase, Task};
+use crate::wm::utils::{Dimension, Position};
+use std::time::{Duration, Instant};
 use wayland_client::QueueHandle;
 
 impl WindowManager {
+    pub fn tick_tasks(&mut self, phase: Phase, now: Instant) {
+        let mut next = VecDeque::new();
+
+        while let Some(mut task) = self.task_queue.pop_front() {
+            if !task.step(self, phase, now) {
+                next.push_back(task);
+            }
+        }
+
+        self.task_queue = next;
+    }
+
     pub fn handle_manage_start(
         &mut self,
         proxy: &RiverWindowManagerV1,
@@ -19,15 +35,18 @@ impl WindowManager {
         qh: &QueueHandle<AppData>,
         config: &Config,
     ) {
+        let now = Instant::now();
+        self.tick_tasks(Phase::Manage, now);
+
         self.remove_outputs();
         self.remove_seats();
         self.remove_windows();
 
         self.init_new_seats(river_xkb, qh, config);
-        self.manage_seats(proxy);
+        self.manage_seats(proxy, now);
 
         self.init_new_windows(&config.window);
-        self.manage_layout();
+        self.manage_layout(now);
         self.manage_windows();
 
         // TODO: move this block into its own function?
@@ -48,13 +67,16 @@ impl WindowManager {
 
                 workspace.focus_active_requested = false;
 
-                workspace.child_rearrange(&mut self.windows);
+                workspace.child_rearrange_required = true;
             }
         }
         proxy.manage_finish();
     }
 
     pub fn handle_render_start(&mut self, proxy: &RiverWindowManagerV1) {
+        let now = Instant::now();
+        self.tick_tasks(Phase::Render, now);
+
         for seat in self.seats.values_mut() {
             match &seat.op {
                 SeatOp::None => {}
@@ -72,7 +94,10 @@ impl WindowManager {
                         .values_mut()
                         .find(|window| &window.proxy == window_proxy)
                     {
-                        window.set_position(start_x + seat.op_dx, start_y + seat.op_dy);
+                        let x = start_x + seat.op_dx;
+                        let y = start_y + seat.op_dy;
+                        window.set_position(x, y);
+                        (window.x, window.y) = (x, y);
                     }
                 }
                 SeatOp::Resize {
@@ -95,7 +120,7 @@ impl WindowManager {
                         if edges.contains(Edges::Top) {
                             y += start_height - window.height;
                         }
-                        window.set_position(x, y);
+                        // window.set_position(x, y);
                     }
                 }
             }
@@ -190,7 +215,7 @@ impl WindowManager {
             self.desktop
                 .attach_window(window_id.clone(), &mut self.windows);
             if let Some(window) = self.windows.get_mut(&window_id) {
-                window.proxy.propose_dimensions(window.width, window.height);
+                // window.proxy.propose_dimensions(window.width, window.height);
                 if window_config.force_ssd {
                     window.proxy.use_ssd();
                 }
@@ -254,8 +279,9 @@ impl WindowManager {
     pub fn manage_windows(&mut self) {
         for window in self.windows.values_mut() {
             if let Some((width, height)) = window.target_dimensions.take() {
-                window.proxy.propose_dimensions(width, height);
-                (window.width, window.height) = (width, height);
+                println!("TODO: unmanaged target dimensions requested")
+                // window.proxy.propose_dimensions(width, height);
+                // (window.width, window.height) = (width, height);
             }
             if let Some(seat_proxy) = window.pointer_move_requested.take() {
                 let seat = self
@@ -273,49 +299,10 @@ impl WindowManager {
                     .expect("Seat {seat_proxy.id()} not found");
                 seat.pointer_resize(window, window.pointer_resize_requested_edges);
             }
-            // TODO: move to before manage_layout
-            // maybe check windows' flags -> manage layout -> render windows?
-            if window.relayout_requested {
-                let location = window.location.as_ref().unwrap();
-                self.desktop
-                    .workspaces
-                    .get_mut(&location.workspace_id)
-                    .unwrap()
-                    .slides
-                    .iter_mut()
-                    .find(|s| s.id == location.slide_id)
-                    .unwrap()
-                    .rearrange_required = true;
-            }
-            if let Some(maximize) = window.maximize_requested.take() {
-                if maximize {
-                    let Some((width, height)) = self.outputs.values().find_map(|output| {
-                        let (width, height) = output.dimensions?;
-                        Some((width, height))
-                    }) else {
-                        continue;
-                    };
-                    window.unmaximized_geometry =
-                        Some((window.x, window.y, window.width, window.height));
-                    window.set_position(self.camera_x, self.camera_y);
-                    window.width = width;
-                    window.height = height;
-                    window.proxy.propose_dimensions(width, height);
-                    window.proxy.inform_maximized();
-                } else {
-                    if let Some((x, y, w, h)) = window.unmaximized_geometry.take() {
-                        window.set_position(x, y);
-                        window.width = w;
-                        window.height = h;
-                        window.proxy.propose_dimensions(w, h);
-                        window.proxy.inform_unmaximized();
-                    }
-                }
-            }
         }
     }
 
-    pub fn manage_seats(&mut self, wm_proxy: &RiverWindowManagerV1) {
+    pub fn manage_seats(&mut self, wm_proxy: &RiverWindowManagerV1, now: Instant) {
         let desktop = &mut self.desktop;
         let windows = &mut self.windows;
         let camera_x = &mut self.camera_x;
@@ -327,7 +314,7 @@ impl WindowManager {
                 window.node.place_top();
                 seat.focus_window(&window_proxy);
 
-                // TODO: should probably fix this code
+                // TODO: should probably fix this code, this just seems goofy
                 if let Some(location) = &window.location {
                     desktop.active_workspace = location.workspace_id.clone();
                     let workspace = desktop.active_workspace_mut();
@@ -346,12 +333,43 @@ impl WindowManager {
                             .iter()
                             .position(|w| w == &window_proxy)
                             .expect("can't find active window");
-                        slide.rearrange(windows);
+                        for (window_id, target_geometry) in slide.rearrange() {
+                            // TODO: FIX THIS
+                            let diff_x =
+                                target_geometry.unwrap().x - windows.get(&window_id).unwrap().x;
+                            let diff_y =
+                                target_geometry.unwrap().y - windows.get(&window_id).unwrap().y;
+
+                            let diff_width = target_geometry.unwrap().width
+                                - windows.get(&window_id).unwrap().width;
+                            let diff_height = target_geometry.unwrap().height
+                                - windows.get(&window_id).unwrap().height;
+
+                            self.task_queue.push_back(Task::ResizeWindow {
+                                window_id: window_id.clone(),
+                                diff_dim: Dimension {
+                                    width: diff_width,
+                                    height: diff_height,
+                                },
+                                started_at: now,
+                                duration: Duration::from_secs(0),
+                            });
+                            self.task_queue.push_back(Task::MoveWindow {
+                                window_id: window_id,
+                                diff_pos: Position {
+                                    x: diff_x,
+                                    y: diff_y,
+                                },
+                                started_at: now,
+                                duration: Duration::from_secs(0),
+                            })
+                        }
                     }
                 }
             }
 
             seat.do_action(
+                &mut self.task_queue,
                 desktop,
                 windows,
                 &self.outputs,
@@ -376,14 +394,58 @@ impl WindowManager {
         }
     }
 
-    pub fn manage_layout(&mut self) {
+    pub fn manage_layout(&mut self, now: Instant) {
         // TODO: I don't like this code - fix this
         for workspace in self.desktop.workspaces.values_mut() {
             if workspace.rearrange_required {
                 workspace.rearrange();
             }
             if workspace.child_rearrange_required {
-                workspace.child_rearrange(&mut self.windows);
+                for (index, slide) in workspace.slides.iter_mut().enumerate() {
+                    if slide.focus_nearest_required {
+                        slide.focus_nearest();
+                        slide.focus_nearest_required = false;
+                    }
+                    if slide.rearrange_required {
+                        slide.position = (
+                            workspace.coord.0,
+                            workspace.coord.1 + workspace.dimensions.1 * (index as i32),
+                        );
+                        // TODO: FIX THIS
+                        for (window_id, target_geometry) in slide.rearrange() {
+                            let diff_x = target_geometry.unwrap().x
+                                - self.windows.get(&window_id).unwrap().x;
+                            let diff_y = target_geometry.unwrap().y
+                                - self.windows.get(&window_id).unwrap().y;
+
+                            let diff_width = target_geometry.unwrap().width
+                                - self.windows.get(&window_id).unwrap().width;
+                            let diff_height = target_geometry.unwrap().height
+                                - self.windows.get(&window_id).unwrap().height;
+
+                            self.task_queue.push_back(Task::ResizeWindow {
+                                window_id: window_id.clone(),
+                                diff_dim: Dimension {
+                                    width: diff_width,
+                                    height: diff_height,
+                                },
+                                started_at: now,
+                                duration: Duration::from_secs(0),
+                            });
+                            self.task_queue.push_back(Task::MoveWindow {
+                                window_id: window_id,
+                                diff_pos: Position {
+                                    x: diff_x,
+                                    y: diff_y,
+                                },
+                                started_at: now,
+                                duration: Duration::from_secs(0),
+                            });
+                        }
+                        slide.rearrange_required = false;
+                    }
+                }
+                workspace.child_rearrange_required = false;
             }
         }
     }

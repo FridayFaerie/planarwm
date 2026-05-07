@@ -14,6 +14,7 @@ use crate::river::{
     river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
 use crate::wm::LibinputDevice;
+use crate::wm::task::Task;
 use wayland_backend::client::ObjectId;
 use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, protocol::wl_registry};
 
@@ -181,7 +182,19 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
             Event::Dimensions { width, height } => {
                 window.width = width;
                 window.height = height;
-                window.relayout_requested = true;
+                // TODO: remove this if not needed?
+                let location = window.location.as_ref().unwrap();
+                state
+                    .wm
+                    .desktop
+                    .workspaces
+                    .get_mut(&location.workspace_id)
+                    .unwrap()
+                    .slides
+                    .iter_mut()
+                    .find(|s| s.id == location.slide_id)
+                    .unwrap()
+                    .rearrange_required = true;
             }
             Event::AppId { app_id: _ } => {}
             Event::Title { title } => {
@@ -199,8 +212,12 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
                     .expect("Invalid edges for resize: {edges}");
             }
             Event::ShowWindowMenuRequested { x: _, y: _ } => {}
-            Event::MaximizeRequested => window.maximize_requested = Some(true),
-            Event::UnmaximizeRequested => window.maximize_requested = Some(false),
+            Event::MaximizeRequested => state.wm.task_queue.push_back(Task::MaximizeWindow {
+                window_id: window.proxy.clone(),
+            }),
+            Event::UnmaximizeRequested => state.wm.task_queue.push_back(Task::MaximizeWindow {
+                window_id: window.proxy.clone(),
+            }),
             Event::FullscreenRequested { output: _ } => {}
             Event::ExitFullscreenRequested => {}
             Event::MinimizeRequested => {}
