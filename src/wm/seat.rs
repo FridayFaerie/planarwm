@@ -11,7 +11,9 @@ use crate::river::{
 };
 use crate::wm::desktop::Desktop;
 use crate::wm::task::Task;
+use crate::wm::utils::{Dimension, Position};
 use std::collections::{HashMap, VecDeque};
+use std::time::{Duration, Instant};
 use wayland_backend::client::ObjectId;
 use wayland_client::QueueHandle;
 
@@ -77,6 +79,7 @@ impl Seat {
         wm_proxy: &RiverWindowManagerV1,
         camera_x: &mut i32,
         camera_y: &mut i32,
+        now: Instant,
     ) {
         match &self.pending_action {
             Action::None => {}
@@ -133,16 +136,36 @@ impl Seat {
                 }
             }
             Action::PrevSlide => {
+                println!("going to previous slide!");
                 let workspace = desktop.active_workspace_mut();
-                workspace.prev_slide(windows);
+                println!("original slide id is {}", workspace.active_slide);
+                workspace.prev_slide();
+                println!("now slide id is {}", workspace.active_slide);
                 let coord = workspace.slides[workspace.active_slide].position;
-                (*camera_x, *camera_y) = coord;
+                // TODO: replace coord with Position
+                println!("new slide's y position is {}", coord.1);
+                task_queue.push_back(Task::MoveCamera {
+                    position: Position {
+                        x: coord.0,
+                        y: coord.1,
+                    },
+                })
             }
             Action::NextSlide => {
+                println!("going to next slide!");
                 let workspace = desktop.active_workspace_mut();
-                workspace.next_slide(windows);
+                println!("original slide id is {}", workspace.active_slide);
+                workspace.next_slide();
+                println!("now slide id is {}", workspace.active_slide);
                 let coord = workspace.slides[workspace.active_slide].position;
-                (*camera_x, *camera_y) = (coord.0, coord.1);
+                // TODO: replace coord with Position
+                println!("new slide's y position is {}", coord.1);
+                task_queue.push_back(Task::MoveCamera {
+                    position: Position {
+                        x: coord.0,
+                        y: coord.1,
+                    },
+                })
             }
             Action::MoveToNextSlide => {
                 let workspace = desktop.active_workspace_mut();
@@ -157,24 +180,86 @@ impl Seat {
                 (*camera_x, *camera_y) = (coord.0, coord.1);
             }
             Action::PrevWindow => {
-                let workspace = desktop.active_workspace_mut();
-                // TODO:
-                // workspace.focus_active_requested = true;
-                // set camera focus to active slide
-                // active_slide.focus_nearest()
-                // if there are windows in active slide, seat.focus_window
-                // rearrange workspace's children
-                workspace.active_slide_mut().prev_window();
+                let slide = desktop.active_workspace_mut().active_slide_mut();
+                slide.prev_window();
+                // TODO: add config option to remove this (keyboard focus on slide change)
+                // TODO: idt I should do this weird check
+                // TODO: Not sure if I need to do this for all seats - if I do, I need a new
+                // FocusOnWindow task prolly
+                if !slide.windows.is_empty() {
+                    self.focus_window(&slide.windows[slide.active_window])
+                }
+                // TODO: refactor this code somewhere else!?!
+                for (window_id, target_geometry) in slide.rearrange() {
+                    // TODO: FIX THIS
+                    let diff_x = target_geometry.unwrap().x - windows.get(&window_id).unwrap().x;
+                    let diff_y = target_geometry.unwrap().y - windows.get(&window_id).unwrap().y;
+
+                    let diff_width =
+                        target_geometry.unwrap().width - windows.get(&window_id).unwrap().width;
+                    let diff_height =
+                        target_geometry.unwrap().height - windows.get(&window_id).unwrap().height;
+
+                    task_queue.push_back(Task::ResizeWindow {
+                        window_id: window_id.clone(),
+                        diff_dim: Dimension {
+                            width: diff_width,
+                            height: diff_height,
+                        },
+                        started_at: now,
+                        duration: Duration::from_secs(0),
+                    });
+                    task_queue.push_back(Task::MoveWindow {
+                        window_id: window_id,
+                        diff_pos: Position {
+                            x: diff_x,
+                            y: diff_y,
+                        },
+                        started_at: now,
+                        duration: Duration::from_secs(0),
+                    })
+                }
             }
             Action::NextWindow => {
-                let workspace = desktop.active_workspace_mut();
-                // TODO:
-                // workspace.focus_active_requested = true;
-                // set camera focus to active slide
-                // active_slide.focus_nearest()
-                // if there are windows in active slide, seat.focus_window
-                // rearrange workspace's children
-                workspace.active_slide_mut().next_window();
+                let slide = desktop.active_workspace_mut().active_slide_mut();
+                slide.next_window();
+                // TODO: add config option to remove this (keyboard focus on slide change)
+                // TODO: idt I should do this weird check
+                // TODO: Not sure if I need to do this for all seats - if I do, I need a new
+                // FocusOnWindow task prolly
+                if !slide.windows.is_empty() {
+                    self.focus_window(&slide.windows[slide.active_window])
+                }
+                // TODO: refactor this code somewhere else!?!??!
+                for (window_id, target_geometry) in slide.rearrange() {
+                    // TODO: FIX THIS
+                    let diff_x = target_geometry.unwrap().x - windows.get(&window_id).unwrap().x;
+                    let diff_y = target_geometry.unwrap().y - windows.get(&window_id).unwrap().y;
+
+                    let diff_width =
+                        target_geometry.unwrap().width - windows.get(&window_id).unwrap().width;
+                    let diff_height =
+                        target_geometry.unwrap().height - windows.get(&window_id).unwrap().height;
+
+                    task_queue.push_back(Task::ResizeWindow {
+                        window_id: window_id.clone(),
+                        diff_dim: Dimension {
+                            width: diff_width,
+                            height: diff_height,
+                        },
+                        started_at: now,
+                        duration: Duration::from_secs(0),
+                    });
+                    task_queue.push_back(Task::MoveWindow {
+                        window_id: window_id,
+                        diff_pos: Position {
+                            x: diff_x,
+                            y: diff_y,
+                        },
+                        started_at: now,
+                        duration: Duration::from_secs(0),
+                    })
+                }
             }
             Action::CycleTiling => {
                 desktop

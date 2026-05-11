@@ -37,7 +37,7 @@ pub enum LayerFocus {
     NonExclusive,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SeatOp {
     None,
     Pan {

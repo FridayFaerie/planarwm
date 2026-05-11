@@ -53,7 +53,7 @@ impl Workspace {
         let window_id = active_slide.windows.remove(active_slide.active_window);
         active_slide.rearrange_required = true;
         self.child_rearrange_required = true;
-        self.next_slide(windows);
+        self.next_slide();
         let active_slide = self
             .slides
             .get_mut(self.active_slide)
@@ -73,7 +73,7 @@ impl Workspace {
         let window_id = active_slide.windows.remove(active_slide.active_window);
         active_slide.rearrange_required = true;
         self.child_rearrange_required = true;
-        self.prev_slide(windows);
+        self.prev_slide();
         let active_slide = self
             .slides
             .get_mut(self.active_slide)
@@ -89,54 +89,32 @@ impl Workspace {
     // window delete
     // TODO: what is this mess of if else
     // TODO: surely these functions don't need the global window?
-    pub fn next_slide(&mut self, windows: &mut HashMap<RiverWindowV1, Window>) {
+    // returns true if slides need to be moved
+    pub fn next_slide(&mut self) {
+        let previous_slide = self.slides.get(self.active_slide).unwrap();
         let new_slide_index = self.active_slide + 1;
-        if new_slide_index == self.slides.len()
-            && let Some(last_slide) = self.slides.last()
-        {
-            if !last_slide.windows.is_empty() {
+        if new_slide_index == self.slides.len() {
+            if previous_slide.windows.is_empty() {
+                return;
+            } else {
                 self.slides
                     .push(Slide::new(self.new_slide_id, self.dimensions));
                 self.new_slide_id += 1;
-            } else {
-                return;
+                self.rearrange();
             }
         }
-        if let Some(previous_slide) = self.slides.get(self.active_slide) {
-            if previous_slide.windows.is_empty() {
-                self.slides.remove(self.active_slide);
-                // TODO: refactor this away
-                for slide in self.slides.iter_mut() {
-                    slide.rearrange_required = true;
-                }
-            } else {
-                self.active_slide += 1;
-            }
-        }
-        // TODO:
-        // workspace.focus_active_requested = true;
-        // set camera focus to active slide
-        // active_slide.focus_nearest()
-        // if there are windows in active slide, seat.focus_window
-        // rearrange workspace's children
+        self.active_slide += 1;
     }
 
-    pub fn prev_slide(&mut self, windows: &mut HashMap<RiverWindowV1, Window>) {
+    pub fn prev_slide(&mut self) {
         if self.active_slide == 0 {
-            if let Some(first_slide) = self.slides.first() {
-                if !first_slide.windows.is_empty() {
-                    self.slides
-                        .insert(0, Slide::new(self.new_slide_id, self.dimensions));
-                    self.new_slide_id += 1;
-                    // TODO: refactor this away
-                    for slide in self.slides.iter_mut() {
-                        slide.rearrange_required = true;
-                    }
-                } else {
-                    return;
-                }
+            let first_slide = self.slides.first().unwrap();
+            if !first_slide.windows.is_empty() {
+                self.slides
+                    .insert(0, Slide::new(self.new_slide_id, self.dimensions));
+                self.new_slide_id += 1;
             } else {
-                eprintln!("can't find first slide!");
+                return;
             }
         } else {
             // TODO: not strictly needed - should I remove?
@@ -144,18 +122,9 @@ impl Workspace {
                 && original_slide.windows.is_empty()
             {
                 self.slides.remove(self.active_slide);
-                // TODO: refactor this away
-                for slide in self.slides.iter_mut() {
-                    slide.rearrange_required = true;
-                }
             }
             self.active_slide -= 1;
         }
-        // TODO:
-        // workspace.focus_active_requested = true;
-        // set camera focus to active slide
-        // active_slide.focus_nearest()
-        // if there are windows in active slide, seat.focus_window
-        // rearrange workspace's children
+        self.rearrange();
     }
 }

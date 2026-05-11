@@ -13,9 +13,8 @@ impl Task {
                 duration,
             } => {
                 if let Some(window) = wm.windows.get_mut(window_id) {
-                    window
-                        .node
-                        .set_position(window.x + diff_pos.x, window.y + diff_pos.y);
+                    window.set_position(window.x + diff_pos.x, window.y + diff_pos.y);
+                    window.set_node_position(wm.camera_x, wm.camera_y);
                 }
 
                 return true;
@@ -60,8 +59,14 @@ impl Task {
                 return false;
             }
             Task::MoveCamera { position } => {
-                // TODO: change camera to position....
-                (wm.camera_x, wm.camera_y) = (position.x, position.y);
+                println!("handling task::MoveCamera! target y: {}", position.y);
+                // TODO: remove
+                // (wm.camera_x, wm.camera_y) = (position.x, position.y);
+
+                // TODO: change position to position....
+                for window in wm.windows.values_mut() {
+                    window.set_node_position(position.x, position.y);
+                }
                 return true;
             }
         }

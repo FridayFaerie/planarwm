@@ -55,7 +55,7 @@ impl Slide {
 
     // TODO: add config to loop?
     pub fn next_window(&mut self) {
-        if self.active_window < self.windows.len() + 1 {
+        if self.active_window + 1 < self.windows.len() {
             self.active_window += 1;
         }
     }

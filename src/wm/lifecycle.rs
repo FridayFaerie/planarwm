@@ -59,7 +59,7 @@ impl WindowManager {
                 let active_slide = &mut workspace.slides[workspace.active_slide];
                 (self.camera_x, self.camera_y) = active_slide.position;
                 // TODO: next_window comes here, can I refactor focus_nearest somewhere else?
-                active_slide.focus_nearest();
+                // active_slide.focus_nearest();
 
                 // TODO: add config option to remove this (keyboard focus on slide change)
                 // TODO: idt I should do this weird check
@@ -132,8 +132,12 @@ impl WindowManager {
 
         self.move_windows_to_target();
 
-        for window in self.windows.values_mut() {
-            window.set_node_position(self.camera_x, self.camera_y);
+        for seat in self.seats.values_mut() {
+            if seat.op != SeatOp::None {
+                for window in self.windows.values_mut() {
+                    window.set_node_position(self.camera_x, self.camera_y);
+                }
+            }
         }
 
         proxy.render_finish();
@@ -175,7 +179,8 @@ impl WindowManager {
                     {
                         slide.windows.retain(|w| w != &window.proxy);
                         slide.rearrange_required = true;
-                        slide.focus_nearest_required = true;
+                        // TODO: remove
+                        // slide.focus_nearest_required = true;
                         // TODO:
                         // workspace.focus_active_requested = true;
                         // set camera focus to active slide
@@ -379,6 +384,7 @@ impl WindowManager {
                 wm_proxy,
                 camera_x,
                 camera_y,
+                now,
             );
             if seat.op_release {
                 seat.op_end();
@@ -405,10 +411,11 @@ impl WindowManager {
             }
             if workspace.child_rearrange_required {
                 for (index, slide) in workspace.slides.iter_mut().enumerate() {
-                    if slide.focus_nearest_required {
-                        slide.focus_nearest();
-                        slide.focus_nearest_required = false;
-                    }
+                    // TODO: remove
+                    // if slide.focus_nearest_required {
+                    //     slide.focus_nearest();
+                    //     slide.focus_nearest_required = false;
+                    // }
                     if slide.rearrange_required {
                         slide.position = (
                             workspace.coord.0,
