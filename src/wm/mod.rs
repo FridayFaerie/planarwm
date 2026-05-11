@@ -15,6 +15,8 @@ use crate::wm::task::Task;
 use crate::wm::utils::Rect;
 use crate::wm::window::WindowLocation;
 use std::collections::{HashMap, VecDeque};
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
 use wayland_backend::client::ObjectId;
 
 use crate::actions::Action;
@@ -59,7 +61,7 @@ pub enum SeatOp {
     },
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct WindowManager {
     pub desktop: Desktop,
     pub windows: HashMap<RiverWindowV1, Window>,
@@ -67,6 +69,8 @@ pub struct WindowManager {
     pub seats: HashMap<ObjectId, Seat>,
     pub libinput_devices: HashMap<ObjectId, LibinputDevice>,
     pub task_queue: VecDeque<Task>,
+    queue_rx: Receiver<Task>,
+    pub queue_tx: Sender<Task>,
 
     // TODO: combine camera_x/y into one camera_pos tuple
     // Also, this should very much come with dimensions (I think)
@@ -117,6 +121,7 @@ pub struct Output {
 #[derive(Debug)]
 pub struct Seat {
     pub proxy: RiverSeatV1,
+    queue_tx: Sender<Task>,
     pub new: bool,
     pub removed: bool,
     pub focused: Option<RiverWindowV1>,

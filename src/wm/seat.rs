@@ -13,6 +13,7 @@ use crate::wm::desktop::Desktop;
 use crate::wm::task::Task;
 use crate::wm::utils::{Dimension, Position};
 use std::collections::{HashMap, VecDeque};
+use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
 use wayland_backend::client::ObjectId;
 use wayland_client::QueueHandle;
@@ -20,9 +21,10 @@ use wayland_client::QueueHandle;
 use super::{LayerFocus, Output, PointerBinding, Seat, SeatOp, Window, XkbBinding};
 
 impl Seat {
-    pub fn new(proxy: RiverSeatV1) -> Self {
+    pub fn new(proxy: RiverSeatV1, tx: Sender<Task>) -> Self {
         Self {
             proxy,
+            queue_tx: tx,
             new: true,
             removed: false,
             focused: None,
@@ -72,7 +74,6 @@ impl Seat {
     // NOTE: this is the stuff that happens on keybinding
     pub fn do_action(
         &mut self,
-        task_queue: &mut VecDeque<Task>,
         desktop: &mut Desktop,
         windows: &mut HashMap<RiverWindowV1, Window>,
         outputs: &HashMap<ObjectId, Output>,
@@ -130,9 +131,11 @@ impl Seat {
             }
             Action::ToggleMaximize => {
                 if let Some(window_proxy) = self.focused.clone() {
-                    task_queue.push_back(Task::MaximizeWindow {
-                        window_id: window_proxy,
-                    });
+                    self.queue_tx
+                        .send(Task::MaximizeWindow {
+                            window_id: window_proxy,
+                        })
+                        .expect("couldn't send togglemaximize");
                 }
             }
             Action::PrevSlide => {
@@ -144,12 +147,14 @@ impl Seat {
                 let coord = workspace.slides[workspace.active_slide].position;
                 // TODO: replace coord with Position
                 println!("new slide's y position is {}", coord.1);
-                task_queue.push_back(Task::MoveCamera {
-                    position: Position {
-                        x: coord.0,
-                        y: coord.1,
-                    },
-                })
+                self.queue_tx
+                    .send(Task::MoveCamera {
+                        position: Position {
+                            x: coord.0,
+                            y: coord.1,
+                        },
+                    })
+                    .expect("couldn't send prevslide");
             }
             Action::NextSlide => {
                 println!("going to next slide!");
@@ -160,12 +165,14 @@ impl Seat {
                 let coord = workspace.slides[workspace.active_slide].position;
                 // TODO: replace coord with Position
                 println!("new slide's y position is {}", coord.1);
-                task_queue.push_back(Task::MoveCamera {
-                    position: Position {
-                        x: coord.0,
-                        y: coord.1,
-                    },
-                })
+                self.queue_tx
+                    .send(Task::MoveCamera {
+                        position: Position {
+                            x: coord.0,
+                            y: coord.1,
+                        },
+                    })
+                    .expect("couldn't send nextslide");
             }
             Action::MoveToNextSlide => {
                 let workspace = desktop.active_workspace_mut();
@@ -200,24 +207,28 @@ impl Seat {
                     let diff_height =
                         target_geometry.unwrap().height - windows.get(&window_id).unwrap().height;
 
-                    task_queue.push_back(Task::ResizeWindow {
-                        window_id: window_id.clone(),
-                        diff_dim: Dimension {
-                            width: diff_width,
-                            height: diff_height,
-                        },
-                        started_at: now,
-                        duration: Duration::from_secs(0),
-                    });
-                    task_queue.push_back(Task::MoveWindow {
-                        window_id: window_id,
-                        diff_pos: Position {
-                            x: diff_x,
-                            y: diff_y,
-                        },
-                        started_at: now,
-                        duration: Duration::from_secs(0),
-                    })
+                    self.queue_tx
+                        .send(Task::ResizeWindow {
+                            window_id: window_id.clone(),
+                            diff_dim: Dimension {
+                                width: diff_width,
+                                height: diff_height,
+                            },
+                            started_at: now,
+                            duration: Duration::from_secs(0),
+                        })
+                        .expect("couldn't send resizewindow");
+                    self.queue_tx
+                        .send(Task::MoveWindow {
+                            window_id: window_id,
+                            diff_pos: Position {
+                                x: diff_x,
+                                y: diff_y,
+                            },
+                            started_at: now,
+                            duration: Duration::from_secs(0),
+                        })
+                        .expect("couldn't send movewindow");
                 }
             }
             Action::NextWindow => {
@@ -241,24 +252,28 @@ impl Seat {
                     let diff_height =
                         target_geometry.unwrap().height - windows.get(&window_id).unwrap().height;
 
-                    task_queue.push_back(Task::ResizeWindow {
-                        window_id: window_id.clone(),
-                        diff_dim: Dimension {
-                            width: diff_width,
-                            height: diff_height,
-                        },
-                        started_at: now,
-                        duration: Duration::from_secs(0),
-                    });
-                    task_queue.push_back(Task::MoveWindow {
-                        window_id: window_id,
-                        diff_pos: Position {
-                            x: diff_x,
-                            y: diff_y,
-                        },
-                        started_at: now,
-                        duration: Duration::from_secs(0),
-                    })
+                    self.queue_tx
+                        .send(Task::ResizeWindow {
+                            window_id: window_id.clone(),
+                            diff_dim: Dimension {
+                                width: diff_width,
+                                height: diff_height,
+                            },
+                            started_at: now,
+                            duration: Duration::from_secs(0),
+                        })
+                        .expect("couldn't send resizewindow");
+                    self.queue_tx
+                        .send(Task::MoveWindow {
+                            window_id: window_id,
+                            diff_pos: Position {
+                                x: diff_x,
+                                y: diff_y,
+                            },
+                            started_at: now,
+                            duration: Duration::from_secs(0),
+                        })
+                        .expect("couldn't send movewindow");
                 }
             }
             Action::CycleTiling => {

@@ -136,7 +136,7 @@ impl Dispatch<RiverWindowManagerV1, ()> for AppData {
                 state.wm.outputs.insert(id.id(), output);
             }
             Event::Seat { id } => {
-                let mut seat = Seat::new(id.clone());
+                let mut seat = Seat::new(id.clone(), state.wm.queue_tx.clone());
                 if let Some(layer_shell) = &state.river_ls {
                     seat.layer = Some(layer_shell.get_seat(&seat.proxy, qh, seat.proxy.id()))
                 }
@@ -212,12 +212,20 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
                     .expect("Invalid edges for resize: {edges}");
             }
             Event::ShowWindowMenuRequested { x: _, y: _ } => {}
-            Event::MaximizeRequested => state.wm.task_queue.push_back(Task::MaximizeWindow {
-                window_id: window.proxy.clone(),
-            }),
-            Event::UnmaximizeRequested => state.wm.task_queue.push_back(Task::MaximizeWindow {
-                window_id: window.proxy.clone(),
-            }),
+            Event::MaximizeRequested => {
+                if let Err(err) = state.wm.queue_tx.send(Task::MaximizeWindow {
+                    window_id: window.proxy.clone(),
+                }) {
+                    eprintln!("failed to send maximize task: {err}");
+                }
+            }
+            Event::UnmaximizeRequested => {
+                if let Err(err) = state.wm.queue_tx.send(Task::MaximizeWindow {
+                    window_id: window.proxy.clone(),
+                }) {
+                    eprintln!("failed to send unmaximize task: {err}");
+                }
+            }
             Event::FullscreenRequested { output: _ } => {}
             Event::ExitFullscreenRequested => {}
             Event::MinimizeRequested => {}

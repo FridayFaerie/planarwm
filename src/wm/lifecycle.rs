@@ -9,15 +9,39 @@ use crate::river::{
 };
 use crate::wm::RiverWindowV1;
 use crate::wm::VecDeque;
+use crate::wm::desktop::Desktop;
 use crate::wm::slide::SlideType;
 use crate::wm::task::{Phase, Task};
 use crate::wm::utils::{Dimension, Position};
+use std::collections::HashMap;
+use std::sync::mpsc;
 use std::time::{Duration, Instant};
 use wayland_client::QueueHandle;
 
 impl WindowManager {
+    pub fn new() -> WindowManager {
+        let (queue_tx, queue_rx) = mpsc::channel();
+        WindowManager {
+            desktop: Desktop::default(),
+            windows: HashMap::new(),
+            outputs: HashMap::new(),
+            seats: HashMap::new(),
+            libinput_devices: HashMap::new(),
+            task_queue: VecDeque::new(),
+            queue_tx,
+            queue_rx,
+            camera_x: 0,
+            camera_y: 0,
+        }
+    }
     pub fn tick_tasks(&mut self, phase: Phase, now: Instant) {
         let mut next = VecDeque::new();
+
+        for task in self.queue_rx {
+            if !task.step(self, phase, now) {
+                next.push_back(task);
+            }
+        }
 
         while let Some(mut task) = self.task_queue.pop_front() {
             if !task.step(self, phase, now) {
@@ -353,24 +377,28 @@ impl WindowManager {
                             let diff_height = target_geometry.unwrap().height
                                 - windows.get(&window_id).unwrap().height;
 
-                            self.task_queue.push_back(Task::ResizeWindow {
-                                window_id: window_id.clone(),
-                                diff_dim: Dimension {
-                                    width: diff_width,
-                                    height: diff_height,
-                                },
-                                started_at: now,
-                                duration: Duration::from_secs(0),
-                            });
-                            self.task_queue.push_back(Task::MoveWindow {
-                                window_id: window_id,
-                                diff_pos: Position {
-                                    x: diff_x,
-                                    y: diff_y,
-                                },
-                                started_at: now,
-                                duration: Duration::from_secs(0),
-                            })
+                            self.queue_tx
+                                .send(Task::ResizeWindow {
+                                    window_id: window_id.clone(),
+                                    diff_dim: Dimension {
+                                        width: diff_width,
+                                        height: diff_height,
+                                    },
+                                    started_at: now,
+                                    duration: Duration::from_secs(0),
+                                })
+                                .expect("couldn't send resizewindow");
+                            self.queue_tx
+                                .send(Task::MoveWindow {
+                                    window_id: window_id,
+                                    diff_pos: Position {
+                                        x: diff_x,
+                                        y: diff_y,
+                                    },
+                                    started_at: now,
+                                    duration: Duration::from_secs(0),
+                                })
+                                .expect("couldn't send movewindow");
                         }
                     }
                 }
@@ -433,24 +461,28 @@ impl WindowManager {
                             let diff_height = target_geometry.unwrap().height
                                 - self.windows.get(&window_id).unwrap().height;
 
-                            self.task_queue.push_back(Task::ResizeWindow {
-                                window_id: window_id.clone(),
-                                diff_dim: Dimension {
-                                    width: diff_width,
-                                    height: diff_height,
-                                },
-                                started_at: now,
-                                duration: Duration::from_secs(0),
-                            });
-                            self.task_queue.push_back(Task::MoveWindow {
-                                window_id: window_id,
-                                diff_pos: Position {
-                                    x: diff_x,
-                                    y: diff_y,
-                                },
-                                started_at: now,
-                                duration: Duration::from_secs(0),
-                            });
+                            self.queue_tx
+                                .send(Task::ResizeWindow {
+                                    window_id: window_id.clone(),
+                                    diff_dim: Dimension {
+                                        width: diff_width,
+                                        height: diff_height,
+                                    },
+                                    started_at: now,
+                                    duration: Duration::from_secs(0),
+                                })
+                                .expect("couldn't send resizewindow");
+                            self.queue_tx
+                                .send(Task::MoveWindow {
+                                    window_id: window_id,
+                                    diff_pos: Position {
+                                        x: diff_x,
+                                        y: diff_y,
+                                    },
+                                    started_at: now,
+                                    duration: Duration::from_secs(0),
+                                })
+                                .expect("couldn't send movewindow");
                         }
                         slide.rearrange_required = false;
                     }

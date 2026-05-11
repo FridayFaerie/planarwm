@@ -85,16 +85,11 @@ impl Workspace {
         }
     }
 
-    // TODO: when next_slide without any windows, remove the slide. Alternatively, remove slide on
-    // window delete
-    // TODO: what is this mess of if else
-    // TODO: surely these functions don't need the global window?
-    // returns true if slides need to be moved
     pub fn next_slide(&mut self) {
-        let previous_slide = self.slides.get(self.active_slide).unwrap();
+        let current_slide = self.slides.get(self.active_slide).unwrap();
         let new_slide_index = self.active_slide + 1;
         if new_slide_index == self.slides.len() {
-            if previous_slide.windows.is_empty() {
+            if current_slide.windows.is_empty() {
                 return;
             } else {
                 self.slides
@@ -102,6 +97,9 @@ impl Workspace {
                 self.new_slide_id += 1;
                 self.rearrange();
             }
+        } else if current_slide.windows.is_empty() {
+            self.slides.remove(self.active_slide);
+            self.rearrange();
         }
         self.active_slide += 1;
     }
