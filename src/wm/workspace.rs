@@ -7,7 +7,8 @@ use crate::wm::slide::Slide;
 pub struct Workspace {
     pub id: String,
     pub coord: (i32, i32),
-    // TODO: remove dimensions, workspace shouldn't have dimensions
+    // TODO: remove dimensions, workspace shouldn't have dimensions - need to have a "center"
+    // position instead?
     pub dimensions: (i32, i32),
     pub slides: Vec<Slide>,
     pub active_slide: usize,
@@ -112,8 +113,12 @@ impl Workspace {
                 self.active_slide += 1;
             }
         }
-        self.child_rearrange_required = true;
-        self.focus_active_requested = true;
+        // TODO:
+        // workspace.focus_active_requested = true;
+        // set camera focus to active slide
+        // active_slide.focus_nearest()
+        // if there are windows in active slide, seat.focus_window
+        // rearrange workspace's children
     }
 
     pub fn prev_slide(&mut self, windows: &mut HashMap<RiverWindowV1, Window>) {
@@ -146,7 +151,11 @@ impl Workspace {
             }
             self.active_slide -= 1;
         }
-        self.child_rearrange_required = true;
-        self.focus_active_requested = true;
+        // TODO:
+        // workspace.focus_active_requested = true;
+        // set camera focus to active slide
+        // active_slide.focus_nearest()
+        // if there are windows in active slide, seat.focus_window
+        // rearrange workspace's children
     }
 }

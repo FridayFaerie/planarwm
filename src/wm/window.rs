@@ -18,7 +18,6 @@ impl Window {
             y: 0,
             width: 0,
             height: 0,
-            target_dimensions: None,
             target_position: None,
 
             new: true,
@@ -38,19 +37,6 @@ impl Window {
 
     pub fn set_node_position(&mut self, camera_x: i32, camera_y: i32) {
         self.node.set_position(self.x - camera_x, self.y - camera_y);
-    }
-
-    pub fn set_target_dimensions(&mut self, width: i32, height: i32) {
-        self.target_dimensions = Some((width, height));
-    }
-
-    pub fn set_target_geometry(&mut self, rect: Rect) {
-        if self.target_position != Some((rect.x, rect.y)) {
-            self.target_position = Some((rect.x, rect.y));
-        }
-        if self.target_dimensions != Some((rect.width, rect.height)) {
-            self.target_dimensions = Some((rect.width, rect.height));
-        }
     }
 }
 

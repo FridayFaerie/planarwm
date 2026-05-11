@@ -52,6 +52,10 @@ impl WindowManager {
         // TODO: move this block into its own function?
         for workspace in self.desktop.workspaces.values_mut() {
             if workspace.focus_active_requested {
+                // set camera focus to active slide
+                // active_slide.focus_nearest()
+                // if there are windows in active slide, seat.focus_window
+                // rearrange workspace's children
                 let active_slide = &mut workspace.slides[workspace.active_slide];
                 (self.camera_x, self.camera_y) = active_slide.position;
                 // TODO: next_window comes here, can I refactor focus_nearest somewhere else?
@@ -97,9 +101,9 @@ impl WindowManager {
                         let x = start_x + seat.op_dx;
                         let y = start_y + seat.op_dy;
                         window.set_position(x, y);
-                        (window.x, window.y) = (x, y);
                     }
                 }
+                // TODO: does this even do anything
                 SeatOp::Resize {
                     window_proxy,
                     start_x,
@@ -172,8 +176,12 @@ impl WindowManager {
                         slide.windows.retain(|w| w != &window.proxy);
                         slide.rearrange_required = true;
                         slide.focus_nearest_required = true;
-                        workspace.child_rearrange_required = true;
-                        workspace.focus_active_requested = true;
+                        // TODO:
+                        // workspace.focus_active_requested = true;
+                        // set camera focus to active slide
+                        // active_slide.focus_nearest()
+                        // if there are windows in active slide, seat.focus_window
+                        // rearrange workspace's children
                     }
 
                     return false;
@@ -278,11 +286,6 @@ impl WindowManager {
 
     pub fn manage_windows(&mut self) {
         for window in self.windows.values_mut() {
-            if let Some((width, height)) = window.target_dimensions.take() {
-                println!("TODO: unmanaged target dimensions requested")
-                // window.proxy.propose_dimensions(width, height);
-                // (window.width, window.height) = (width, height);
-            }
             if let Some(seat_proxy) = window.pointer_move_requested.take() {
                 let seat = self
                     .seats

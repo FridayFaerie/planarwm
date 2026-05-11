@@ -70,7 +70,7 @@ impl Seat {
     // NOTE: this is the stuff that happens on keybinding
     pub fn do_action(
         &mut self,
-        queue: &mut VecDeque<Task>,
+        task_queue: &mut VecDeque<Task>,
         desktop: &mut Desktop,
         windows: &mut HashMap<RiverWindowV1, Window>,
         outputs: &HashMap<ObjectId, Output>,
@@ -127,7 +127,7 @@ impl Seat {
             }
             Action::ToggleMaximize => {
                 if let Some(window_proxy) = self.focused.clone() {
-                    queue.push_back(Task::MaximizeWindow {
+                    task_queue.push_back(Task::MaximizeWindow {
                         window_id: window_proxy,
                     });
                 }
@@ -137,6 +137,12 @@ impl Seat {
                 workspace.prev_slide(windows);
                 let coord = workspace.slides[workspace.active_slide].position;
                 (*camera_x, *camera_y) = coord;
+            }
+            Action::NextSlide => {
+                let workspace = desktop.active_workspace_mut();
+                workspace.next_slide(windows);
+                let coord = workspace.slides[workspace.active_slide].position;
+                (*camera_x, *camera_y) = (coord.0, coord.1);
             }
             Action::MoveToNextSlide => {
                 let workspace = desktop.active_workspace_mut();
@@ -150,20 +156,24 @@ impl Seat {
                 let coord = workspace.slides[workspace.active_slide].position;
                 (*camera_x, *camera_y) = (coord.0, coord.1);
             }
-            Action::NextSlide => {
-                let workspace = desktop.active_workspace_mut();
-                workspace.next_slide(windows);
-                let coord = workspace.slides[workspace.active_slide].position;
-                (*camera_x, *camera_y) = (coord.0, coord.1);
-            }
             Action::PrevWindow => {
                 let workspace = desktop.active_workspace_mut();
-                workspace.focus_active_requested = true;
+                // TODO:
+                // workspace.focus_active_requested = true;
+                // set camera focus to active slide
+                // active_slide.focus_nearest()
+                // if there are windows in active slide, seat.focus_window
+                // rearrange workspace's children
                 workspace.active_slide_mut().prev_window();
             }
             Action::NextWindow => {
                 let workspace = desktop.active_workspace_mut();
-                workspace.focus_active_requested = true;
+                // TODO:
+                // workspace.focus_active_requested = true;
+                // set camera focus to active slide
+                // active_slide.focus_nearest()
+                // if there are windows in active slide, seat.focus_window
+                // rearrange workspace's children
                 workspace.active_slide_mut().next_window();
             }
             Action::CycleTiling => {

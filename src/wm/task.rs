@@ -13,7 +13,9 @@ impl Task {
                 duration,
             } => {
                 if let Some(window) = wm.windows.get_mut(window_id) {
-                    window.set_position(window.x + diff_pos.x, window.y + diff_pos.y);
+                    window
+                        .node
+                        .set_position(window.x + diff_pos.x, window.y + diff_pos.y);
                 }
 
                 return true;
@@ -41,20 +43,6 @@ impl Task {
                 {
                     if window.maximized {
                         // TODO: write this code
-                        // for (w, geom) in wm
-                        //     .desktop
-                        //     .active_workspace_mut()
-                        //     .active_slide_mut()
-                        //     .rearrange()
-                        //     .iter()
-                        // {
-                        //     if w == &window.proxy {
-                        //         if let Some(g) = geom {
-                        //             window.node.set_position(g.x, g.y);
-                        //             window.proxy.propose_dimensions(g.width, g.height);
-                        //         }
-                        //     }
-                        // }
                     } else {
                         if let Some((width, height)) =
                             wm.outputs.values().find_map(|output| output.dimensions)
@@ -70,6 +58,11 @@ impl Task {
                     return true;
                 }
                 return false;
+            }
+            Task::MoveCamera { position } => {
+                // TODO: change camera to position....
+                (wm.camera_x, wm.camera_y) = (position.x, position.y);
+                return true;
             }
         }
     }
@@ -101,5 +94,8 @@ pub enum Task {
     // },
     MaximizeWindow {
         window_id: RiverWindowV1,
+    },
+    MoveCamera {
+        position: Position,
     },
 }

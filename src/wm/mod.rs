@@ -86,7 +86,6 @@ pub struct Window {
     pub y: i32,
     pub width: i32,
     pub height: i32,
-    pub target_dimensions: Option<(i32, i32)>,
     pub target_position: Option<(i32, i32)>,
 
     pub new: bool,
