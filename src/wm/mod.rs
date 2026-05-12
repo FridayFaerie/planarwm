@@ -68,7 +68,6 @@ pub struct WindowManager {
     pub outputs: HashMap<ObjectId, Output>,
     pub seats: HashMap<ObjectId, Seat>,
     pub libinput_devices: HashMap<ObjectId, LibinputDevice>,
-    pub task_queue: VecDeque<Task>,
     queue_rx: Receiver<Task>,
     pub queue_tx: Sender<Task>,
 

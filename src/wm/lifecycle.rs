@@ -27,7 +27,6 @@ impl WindowManager {
             outputs: HashMap::new(),
             seats: HashMap::new(),
             libinput_devices: HashMap::new(),
-            task_queue: VecDeque::new(),
             queue_tx,
             queue_rx,
             camera_x: 0,
@@ -35,21 +34,17 @@ impl WindowManager {
         }
     }
     pub fn tick_tasks(&mut self, phase: Phase, now: Instant) {
-        let mut next = VecDeque::new();
+        let mut pending = Vec::new();
 
-        for task in self.queue_rx {
-            if !task.step(self, phase, now) {
-                next.push_back(task);
-            }
+        while let Ok(task) = self.queue_rx.try_recv() {
+            pending.push(task);
         }
 
-        while let Some(mut task) = self.task_queue.pop_front() {
+        for mut task in pending {
             if !task.step(self, phase, now) {
-                next.push_back(task);
+                self.queue_tx.send(task).expect("Couldn't requeue task!");
             }
         }
-
-        self.task_queue = next;
     }
 
     pub fn handle_manage_start(
@@ -405,7 +400,6 @@ impl WindowManager {
             }
 
             seat.do_action(
-                &mut self.task_queue,
                 desktop,
                 windows,
                 &self.outputs,
