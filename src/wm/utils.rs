@@ -9,6 +9,7 @@ pub struct Rect {
     pub height: i32,
 }
 
+// TODO: maybe rename dimension to size
 #[derive(Debug, Clone, Copy)]
 pub struct Dimension {
     pub width: i32,

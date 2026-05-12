@@ -12,9 +12,8 @@ pub mod workspace;
 
 use crate::wm::desktop::Desktop;
 use crate::wm::task::Task;
-use crate::wm::utils::Rect;
 use crate::wm::window::WindowLocation;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
 use wayland_backend::client::ObjectId;

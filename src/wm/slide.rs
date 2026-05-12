@@ -1,5 +1,8 @@
-use crate::Window;
-use crate::wm::{HashMap, RiverWindowV1, utils::Rect};
+use std::sync::mpsc::Sender;
+
+use crate::wm::task::Task;
+use crate::wm::utils::{Dimension, Position};
+use crate::wm::{RiverWindowV1, utils::Rect};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq)]
@@ -12,7 +15,7 @@ pub enum SlideType {
     // HorizontalScroll,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Slide {
     pub id: u16,
     pub slide_type: SlideType,
@@ -21,11 +24,11 @@ pub struct Slide {
     pub windows: Vec<RiverWindowV1>,
     pub active_window: usize,
     pub rearrange_required: bool,
-    pub focus_nearest_required: bool,
+    queue_tx: Sender<Task>,
 }
 
 impl Slide {
-    pub fn new(id: u16, dimensions: (i32, i32)) -> Self {
+    pub fn new(id: u16, dimensions: (i32, i32), queue_tx: Sender<Task>) -> Self {
         Self {
             id,
             slide_type: SlideType::VerticalScroll,
@@ -34,7 +37,7 @@ impl Slide {
             windows: Vec::new(),
             active_window: 0,
             rearrange_required: true,
-            focus_nearest_required: false,
+            queue_tx,
         }
     }
 
@@ -45,12 +48,6 @@ impl Slide {
         }
         // TODO: This is not sustainable....
         self.active_window = self.windows.len() - 1;
-    }
-
-    pub fn focus_nearest(&mut self) {
-        if self.active_window >= self.windows.len() && self.active_window != 0 {
-            self.active_window = self.windows.len() - 1;
-        }
     }
 
     // TODO: add config to loop?
@@ -76,8 +73,7 @@ impl Slide {
         }
     }
 
-    // TODO: all references would need to send this vec to queue somehow
-    pub fn rearrange(&self) -> Vec<(RiverWindowV1, Option<Rect>)> {
+    pub fn rearrange(&self) {
         let bounds = Rect {
             x: self.position.0,
             y: self.position.1,
@@ -87,60 +83,61 @@ impl Slide {
         match self.slide_type {
             SlideType::Master => self.master_rearrange(bounds),
             SlideType::VerticalScroll => self.vertscroll_rearrange(bounds),
-            _ => Vec::new(),
+            _ => {}
         }
     }
 
-    fn vertscroll_rearrange(&self, bounds: Rect) -> Vec<(RiverWindowV1, Option<Rect>)> {
+    fn vertscroll_rearrange(&self, bounds: Rect) {
         let slide_size = self.windows.len();
         let outer_gaps = 20;
         let inner_gaps = 10;
         let window_width = bounds.width - 2 * outer_gaps;
         let window_height = bounds.height - 2 * outer_gaps;
 
-        let mut out = Vec::new();
-
         if slide_size == 0 {
-            return out;
+            return;
         };
 
         let active_index = self.active_window;
 
         for index in 0..active_index {
-            out.push((
-                self.windows[index].clone(),
-                Some(Rect {
-                    x: (bounds.x + outer_gaps)
-                        + (window_width + inner_gaps) * (index as i32 - active_index as i32),
-                    y: bounds.y + outer_gaps,
-                    width: window_width,
-                    height: window_height,
-                }),
-            ));
+            let x = (bounds.x + outer_gaps)
+                + (window_width + inner_gaps) * (index as i32 - active_index as i32);
+            let y = bounds.y + outer_gaps;
+            self.queue_tx
+                .send(Task::SetWindowGeometry {
+                    window_id: self.windows[index].clone(),
+                    pos: Position { x: x, y: y },
+                    dim: Dimension {
+                        width: window_width,
+                        height: window_height,
+                    },
+                })
+                .expect("couldn't send window geometry...");
         }
 
         for index in active_index..self.windows.len() {
-            out.push((
-                self.windows[index].clone(),
-                Some(Rect {
-                    x: (bounds.x + outer_gaps)
-                        + (window_width + inner_gaps) * (index as i32 - active_index as i32),
-                    y: bounds.y + outer_gaps,
-                    width: window_width,
-                    height: window_height,
-                }),
-            ));
+            let x = (bounds.x + outer_gaps)
+                + (window_width + inner_gaps) * (index as i32 - active_index as i32);
+            let y = bounds.y + outer_gaps;
+            self.queue_tx
+                .send(Task::SetWindowGeometry {
+                    window_id: self.windows[index].clone(),
+                    pos: Position { x: x, y: y },
+                    dim: Dimension {
+                        width: window_width,
+                        height: window_height,
+                    },
+                })
+                .expect("couldn't send window geometry...");
         }
-
-        out
     }
 
-    fn master_rearrange(&self, bounds: Rect) -> Vec<(RiverWindowV1, Option<Rect>)> {
+    fn master_rearrange(&self, bounds: Rect) {
         let slide_size = self.windows.len();
-        let mut out = Vec::new();
 
         if slide_size == 0 {
-            return out;
+            return;
         }
 
         let master_w = if slide_size > 1 {
@@ -151,30 +148,37 @@ impl Slide {
 
         for (index, _) in self.windows.iter().enumerate() {
             if index == 0 {
-                out.push((
-                    self.windows[index].clone(),
-                    Some(Rect {
-                        x: bounds.x,
-                        y: bounds.y,
-                        width: master_w,
-                        height: bounds.height,
-                    }),
-                ));
+                self.queue_tx
+                    .send(Task::SetWindowGeometry {
+                        window_id: self.windows[index].clone(),
+                        pos: Position {
+                            x: bounds.x,
+                            y: bounds.y,
+                        },
+                        dim: Dimension {
+                            width: master_w,
+                            height: bounds.height,
+                        },
+                    })
+                    .expect("couldn't send window geometry...");
             } else {
                 let stack_size = (slide_size - 1) as i32;
                 let stack_h = bounds.height / stack_size;
 
-                out.push((
-                    self.windows[index].clone(),
-                    Some(Rect {
-                        x: bounds.x + master_w,
-                        y: bounds.y + ((index as i32 - 1) * stack_h),
-                        width: bounds.width - master_w,
-                        height: stack_h,
-                    }),
-                ));
+                self.queue_tx
+                    .send(Task::SetWindowGeometry {
+                        window_id: self.windows[index].clone(),
+                        pos: Position {
+                            x: bounds.x + master_w,
+                            y: bounds.y + ((index as i32 - 1) * stack_h),
+                        },
+                        dim: Dimension {
+                            width: bounds.width - master_w,
+                            height: stack_h,
+                        },
+                    })
+                    .expect("couldn't send window geometry...");
             }
         }
-        out
     }
 }

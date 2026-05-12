@@ -1,8 +1,6 @@
 use crate::AppData;
 use crate::Window;
 use crate::river::river_window_v1::{Edges, RiverWindowV1};
-use crate::wm::utils::Dimension;
-use crate::wm::utils::Rect;
 use wayland_client::QueueHandle;
 
 impl Window {

@@ -11,10 +11,9 @@ use crate::river::{
 };
 use crate::wm::desktop::Desktop;
 use crate::wm::task::Task;
-use crate::wm::utils::{Dimension, Position};
-use std::collections::{HashMap, VecDeque};
+use crate::wm::utils::Position;
+use std::collections::HashMap;
 use std::sync::mpsc::Sender;
-use std::time::{Duration, Instant};
 use wayland_backend::client::ObjectId;
 use wayland_client::QueueHandle;
 
@@ -80,7 +79,6 @@ impl Seat {
         wm_proxy: &RiverWindowManagerV1,
         camera_x: &mut i32,
         camera_y: &mut i32,
-        now: Instant,
     ) {
         match &self.pending_action {
             Action::None => {}
@@ -139,14 +137,10 @@ impl Seat {
                 }
             }
             Action::PrevSlide => {
-                println!("going to previous slide!");
                 let workspace = desktop.active_workspace_mut();
-                println!("original slide id is {}", workspace.active_slide);
                 workspace.prev_slide();
-                println!("now slide id is {}", workspace.active_slide);
                 let coord = workspace.slides[workspace.active_slide].position;
                 // TODO: replace coord with Position
-                println!("new slide's y position is {}", coord.1);
                 self.queue_tx
                     .send(Task::MoveCamera {
                         position: Position {
@@ -157,14 +151,10 @@ impl Seat {
                     .expect("couldn't send prevslide");
             }
             Action::NextSlide => {
-                println!("going to next slide!");
                 let workspace = desktop.active_workspace_mut();
-                println!("original slide id is {}", workspace.active_slide);
                 workspace.next_slide();
-                println!("now slide id is {}", workspace.active_slide);
                 let coord = workspace.slides[workspace.active_slide].position;
                 // TODO: replace coord with Position
-                println!("new slide's y position is {}", coord.1);
                 self.queue_tx
                     .send(Task::MoveCamera {
                         position: Position {
@@ -196,40 +186,7 @@ impl Seat {
                 if !slide.windows.is_empty() {
                     self.focus_window(&slide.windows[slide.active_window])
                 }
-                // TODO: refactor this code somewhere else!?!
-                for (window_id, target_geometry) in slide.rearrange() {
-                    // TODO: FIX THIS
-                    let diff_x = target_geometry.unwrap().x - windows.get(&window_id).unwrap().x;
-                    let diff_y = target_geometry.unwrap().y - windows.get(&window_id).unwrap().y;
-
-                    let diff_width =
-                        target_geometry.unwrap().width - windows.get(&window_id).unwrap().width;
-                    let diff_height =
-                        target_geometry.unwrap().height - windows.get(&window_id).unwrap().height;
-
-                    self.queue_tx
-                        .send(Task::ResizeWindow {
-                            window_id: window_id.clone(),
-                            diff_dim: Dimension {
-                                width: diff_width,
-                                height: diff_height,
-                            },
-                            started_at: now,
-                            duration: Duration::from_secs(0),
-                        })
-                        .expect("couldn't send resizewindow");
-                    self.queue_tx
-                        .send(Task::MoveWindow {
-                            window_id: window_id,
-                            diff_pos: Position {
-                                x: diff_x,
-                                y: diff_y,
-                            },
-                            started_at: now,
-                            duration: Duration::from_secs(0),
-                        })
-                        .expect("couldn't send movewindow");
-                }
+                slide.rearrange();
             }
             Action::NextWindow => {
                 let slide = desktop.active_workspace_mut().active_slide_mut();
@@ -241,40 +198,7 @@ impl Seat {
                 if !slide.windows.is_empty() {
                     self.focus_window(&slide.windows[slide.active_window])
                 }
-                // TODO: refactor this code somewhere else!?!??!
-                for (window_id, target_geometry) in slide.rearrange() {
-                    // TODO: FIX THIS
-                    let diff_x = target_geometry.unwrap().x - windows.get(&window_id).unwrap().x;
-                    let diff_y = target_geometry.unwrap().y - windows.get(&window_id).unwrap().y;
-
-                    let diff_width =
-                        target_geometry.unwrap().width - windows.get(&window_id).unwrap().width;
-                    let diff_height =
-                        target_geometry.unwrap().height - windows.get(&window_id).unwrap().height;
-
-                    self.queue_tx
-                        .send(Task::ResizeWindow {
-                            window_id: window_id.clone(),
-                            diff_dim: Dimension {
-                                width: diff_width,
-                                height: diff_height,
-                            },
-                            started_at: now,
-                            duration: Duration::from_secs(0),
-                        })
-                        .expect("couldn't send resizewindow");
-                    self.queue_tx
-                        .send(Task::MoveWindow {
-                            window_id: window_id,
-                            diff_pos: Position {
-                                x: diff_x,
-                                y: diff_y,
-                            },
-                            started_at: now,
-                            duration: Duration::from_secs(0),
-                        })
-                        .expect("couldn't send movewindow");
-                }
+                slide.rearrange();
             }
             Action::CycleTiling => {
                 desktop
