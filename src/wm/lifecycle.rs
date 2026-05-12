@@ -5,13 +5,45 @@ use crate::config::{Config, WindowConfig};
 use crate::protocol::river::wayland_client::Proxy;
 use crate::river::{
     river_seat_v1::Modifiers, river_window_manager_v1::RiverWindowManagerV1,
-    river_window_v1::Edges, river_xkb_bindings_v1::RiverXkbBindingsV1,
+    river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
 use crate::wm::RiverWindowV1;
+use crate::wm::desktop::Desktop;
 use crate::wm::slide::SlideType;
+use crate::wm::task::Phase;
+use std::collections::HashMap;
+use std::sync::mpsc;
 use wayland_client::QueueHandle;
 
 impl WindowManager {
+    pub fn new() -> WindowManager {
+        let (queue_tx, queue_rx) = mpsc::channel();
+        WindowManager {
+            desktop: Desktop::new(queue_tx.clone()),
+            windows: HashMap::new(),
+            outputs: HashMap::new(),
+            seats: HashMap::new(),
+            libinput_devices: HashMap::new(),
+            queue_tx,
+            queue_rx,
+            camera_x: 0,
+            camera_y: 0,
+        }
+    }
+    pub fn tick_tasks(&mut self, phase: Phase) {
+        let mut pending = Vec::new();
+
+        while let Ok(task) = self.queue_rx.try_recv() {
+            pending.push(task);
+        }
+
+        for mut task in pending {
+            if !task.step(self, phase) {
+                self.queue_tx.send(task).expect("Couldn't requeue task!");
+            }
+        }
+    }
+
     pub fn handle_manage_start(
         &mut self,
         proxy: &RiverWindowManagerV1,
@@ -19,6 +51,8 @@ impl WindowManager {
         qh: &QueueHandle<AppData>,
         config: &Config,
     ) {
+        self.tick_tasks(Phase::Manage);
+
         self.remove_outputs();
         self.remove_seats();
         self.remove_windows();
@@ -33,10 +67,14 @@ impl WindowManager {
         // TODO: move this block into its own function?
         for workspace in self.desktop.workspaces.values_mut() {
             if workspace.focus_active_requested {
+                // set camera focus to active slide
+                // active_slide.focus_nearest()
+                // if there are windows in active slide, seat.focus_window
+                // rearrange workspace's children
                 let active_slide = &mut workspace.slides[workspace.active_slide];
                 (self.camera_x, self.camera_y) = active_slide.position;
                 // TODO: next_window comes here, can I refactor focus_nearest somewhere else?
-                active_slide.focus_nearest();
+                // active_slide.focus_nearest();
 
                 // TODO: add config option to remove this (keyboard focus on slide change)
                 // TODO: idt I should do this weird check
@@ -48,13 +86,15 @@ impl WindowManager {
 
                 workspace.focus_active_requested = false;
 
-                workspace.child_rearrange(&mut self.windows);
+                workspace.child_rearrange_required = true;
             }
         }
         proxy.manage_finish();
     }
 
     pub fn handle_render_start(&mut self, proxy: &RiverWindowManagerV1) {
+        self.tick_tasks(Phase::Render);
+
         for seat in self.seats.values_mut() {
             match &seat.op {
                 SeatOp::None => {}
@@ -72,30 +112,34 @@ impl WindowManager {
                         .values_mut()
                         .find(|window| &window.proxy == window_proxy)
                     {
-                        window.set_position(start_x + seat.op_dx, start_y + seat.op_dy);
+                        let x = start_x + seat.op_dx;
+                        let y = start_y + seat.op_dy;
+                        window.set_position(x, y);
                     }
                 }
+                // This code "saves" the position as the resize goes on
                 SeatOp::Resize {
                     window_proxy,
-                    start_x,
-                    start_y,
-                    start_width,
-                    start_height,
-                    edges,
+                    // start_x,
+                    // start_y,
+                    // start_width,
+                    // start_height,
+                    // edges,
+                    ..
                 } => {
-                    if let Some(window) = self
+                    if let Some(_) = self
                         .windows
                         .values_mut()
                         .find(|window| &window.proxy == window_proxy)
                     {
-                        let (mut x, mut y) = (*start_x, *start_y);
-                        if edges.contains(Edges::Left) {
-                            x += start_width - window.width;
-                        }
-                        if edges.contains(Edges::Top) {
-                            y += start_height - window.height;
-                        }
-                        window.set_position(x, y);
+                        // let (mut x, mut y) = (*start_x, *start_y);
+                        // if edges.contains(Edges::Left) {
+                        //     x += start_width - window.width;
+                        // }
+                        // if edges.contains(Edges::Top) {
+                        //     y += start_height - window.height;
+                        // }
+                        // window.set_position(x, y);
                     }
                 }
             }
@@ -103,8 +147,12 @@ impl WindowManager {
 
         self.move_windows_to_target();
 
-        for window in self.windows.values_mut() {
-            window.set_node_position(self.camera_x, self.camera_y);
+        for seat in self.seats.values_mut() {
+            if seat.op != SeatOp::None {
+                for window in self.windows.values_mut() {
+                    window.set_node_position(self.camera_x, self.camera_y);
+                }
+            }
         }
 
         proxy.render_finish();
@@ -146,9 +194,14 @@ impl WindowManager {
                     {
                         slide.windows.retain(|w| w != &window.proxy);
                         slide.rearrange_required = true;
-                        slide.focus_nearest_required = true;
-                        workspace.child_rearrange_required = true;
-                        workspace.focus_active_requested = true;
+                        // TODO: remove
+                        // slide.focus_nearest_required = true;
+                        // TODO:
+                        // workspace.focus_active_requested = true;
+                        // set camera focus to active slide
+                        // active_slide.focus_nearest()
+                        // if there are windows in active slide, seat.focus_window
+                        // rearrange workspace's children
                     }
 
                     return false;
@@ -190,7 +243,7 @@ impl WindowManager {
             self.desktop
                 .attach_window(window_id.clone(), &mut self.windows);
             if let Some(window) = self.windows.get_mut(&window_id) {
-                window.proxy.propose_dimensions(window.width, window.height);
+                // window.proxy.propose_dimensions(window.width, window.height);
                 if window_config.force_ssd {
                     window.proxy.use_ssd();
                 }
@@ -253,10 +306,6 @@ impl WindowManager {
 
     pub fn manage_windows(&mut self) {
         for window in self.windows.values_mut() {
-            if let Some((width, height)) = window.target_dimensions.take() {
-                window.proxy.propose_dimensions(width, height);
-                (window.width, window.height) = (width, height);
-            }
             if let Some(seat_proxy) = window.pointer_move_requested.take() {
                 let seat = self
                     .seats
@@ -273,45 +322,6 @@ impl WindowManager {
                     .expect("Seat {seat_proxy.id()} not found");
                 seat.pointer_resize(window, window.pointer_resize_requested_edges);
             }
-            // TODO: move to before manage_layout
-            // maybe check windows' flags -> manage layout -> render windows?
-            if window.relayout_requested {
-                let location = window.location.as_ref().unwrap();
-                self.desktop
-                    .workspaces
-                    .get_mut(&location.workspace_id)
-                    .unwrap()
-                    .slides
-                    .iter_mut()
-                    .find(|s| s.id == location.slide_id)
-                    .unwrap()
-                    .rearrange_required = true;
-            }
-            if let Some(maximize) = window.maximize_requested.take() {
-                if maximize {
-                    let Some((width, height)) = self.outputs.values().find_map(|output| {
-                        let (width, height) = output.dimensions?;
-                        Some((width, height))
-                    }) else {
-                        continue;
-                    };
-                    window.unmaximized_geometry =
-                        Some((window.x, window.y, window.width, window.height));
-                    window.set_position(self.camera_x, self.camera_y);
-                    window.width = width;
-                    window.height = height;
-                    window.proxy.propose_dimensions(width, height);
-                    window.proxy.inform_maximized();
-                } else {
-                    if let Some((x, y, w, h)) = window.unmaximized_geometry.take() {
-                        window.set_position(x, y);
-                        window.width = w;
-                        window.height = h;
-                        window.proxy.propose_dimensions(w, h);
-                        window.proxy.inform_unmaximized();
-                    }
-                }
-            }
         }
     }
 
@@ -327,7 +337,7 @@ impl WindowManager {
                 window.node.place_top();
                 seat.focus_window(&window_proxy);
 
-                // TODO: should probably fix this code
+                // TODO: should probably fix this code, this just seems goofy
                 if let Some(location) = &window.location {
                     desktop.active_workspace = location.workspace_id.clone();
                     let workspace = desktop.active_workspace_mut();
@@ -346,7 +356,7 @@ impl WindowManager {
                             .iter()
                             .position(|w| w == &window_proxy)
                             .expect("can't find active window");
-                        slide.rearrange(windows);
+                        slide.rearrange();
                     }
                 }
             }
@@ -379,11 +389,23 @@ impl WindowManager {
     pub fn manage_layout(&mut self) {
         // TODO: I don't like this code - fix this
         for workspace in self.desktop.workspaces.values_mut() {
-            if workspace.rearrange_required {
-                workspace.rearrange();
-            }
             if workspace.child_rearrange_required {
-                workspace.child_rearrange(&mut self.windows);
+                for (index, slide) in workspace.slides.iter_mut().enumerate() {
+                    // TODO: remove
+                    // if slide.focus_nearest_required {
+                    //     slide.focus_nearest();
+                    //     slide.focus_nearest_required = false;
+                    // }
+                    if slide.rearrange_required {
+                        slide.position = (
+                            workspace.coord.0,
+                            workspace.coord.1 + workspace.dimensions.1 * (index as i32),
+                        );
+                        slide.rearrange();
+                        slide.rearrange_required = false;
+                    }
+                }
+                workspace.child_rearrange_required = false;
             }
         }
     }

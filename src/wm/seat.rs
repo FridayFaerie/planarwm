@@ -10,16 +10,20 @@ use crate::river::{
     river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
 use crate::wm::desktop::Desktop;
+use crate::wm::task::Task;
+use crate::wm::utils::Position;
 use std::collections::HashMap;
+use std::sync::mpsc::Sender;
 use wayland_backend::client::ObjectId;
 use wayland_client::QueueHandle;
 
 use super::{LayerFocus, Output, PointerBinding, Seat, SeatOp, Window, XkbBinding};
 
 impl Seat {
-    pub fn new(proxy: RiverSeatV1) -> Self {
+    pub fn new(proxy: RiverSeatV1, tx: Sender<Task>) -> Self {
         Self {
             proxy,
+            queue_tx: tx,
             new: true,
             removed: false,
             focused: None,
@@ -124,19 +128,49 @@ impl Seat {
                 }
             }
             Action::ToggleMaximize => {
-                if let Some(window_proxy) = self.focused.as_ref()
-                    && let Some(window) = windows
-                        .values_mut()
-                        .find(|window| &window.proxy == window_proxy)
-                {
-                    window.maximize_requested = Some(window.unmaximized_geometry.is_none());
+                if let Some(window_proxy) = self.focused.clone() {
+                    self.queue_tx
+                        .send(Task::MaximizeWindow {
+                            window_id: window_proxy,
+                        })
+                        .expect("couldn't send togglemaximize");
                 }
             }
             Action::PrevSlide => {
                 let workspace = desktop.active_workspace_mut();
-                workspace.prev_slide(windows);
+                workspace.prev_slide();
                 let coord = workspace.slides[workspace.active_slide].position;
-                (*camera_x, *camera_y) = coord;
+                // TODO: replace coord with Position
+                self.queue_tx
+                    .send(Task::MoveCamera {
+                        position: Position {
+                            x: coord.0,
+                            y: coord.1,
+                        },
+                    })
+                    .expect("couldn't send prevslide");
+                let slide = workspace.active_slide_mut();
+                if !slide.windows.is_empty() {
+                    self.focus_window(&slide.windows[slide.active_window]);
+                }
+            }
+            Action::NextSlide => {
+                let workspace = desktop.active_workspace_mut();
+                workspace.next_slide();
+                let coord = workspace.slides[workspace.active_slide].position;
+                // TODO: replace coord with Position
+                self.queue_tx
+                    .send(Task::MoveCamera {
+                        position: Position {
+                            x: coord.0,
+                            y: coord.1,
+                        },
+                    })
+                    .expect("couldn't send nextslide");
+                let slide = workspace.active_slide_mut();
+                if !slide.windows.is_empty() {
+                    self.focus_window(&slide.windows[slide.active_window]);
+                }
             }
             Action::MoveToNextSlide => {
                 let workspace = desktop.active_workspace_mut();
@@ -150,21 +184,29 @@ impl Seat {
                 let coord = workspace.slides[workspace.active_slide].position;
                 (*camera_x, *camera_y) = (coord.0, coord.1);
             }
-            Action::NextSlide => {
-                let workspace = desktop.active_workspace_mut();
-                workspace.next_slide(windows);
-                let coord = workspace.slides[workspace.active_slide].position;
-                (*camera_x, *camera_y) = (coord.0, coord.1);
-            }
             Action::PrevWindow => {
-                let workspace = desktop.active_workspace_mut();
-                workspace.focus_active_requested = true;
-                workspace.active_slide_mut().prev_window();
+                let slide = desktop.active_workspace_mut().active_slide_mut();
+                slide.prev_window();
+                // TODO: add config option to remove this (keyboard focus on slide change)
+                // TODO: idt I should do this weird check
+                // TODO: Not sure if I need to do this for all seats - if I do, I need a new
+                // FocusOnWindow task prolly
+                if !slide.windows.is_empty() {
+                    self.focus_window(&slide.windows[slide.active_window])
+                }
+                slide.rearrange();
             }
             Action::NextWindow => {
-                let workspace = desktop.active_workspace_mut();
-                workspace.focus_active_requested = true;
-                workspace.active_slide_mut().next_window();
+                let slide = desktop.active_workspace_mut().active_slide_mut();
+                slide.next_window();
+                // TODO: add config option to remove this (keyboard focus on slide change)
+                // TODO: idt I should do this weird check
+                // TODO: Not sure if I need to do this for all seats - if I do, I need a new
+                // FocusOnWindow task prolly
+                if !slide.windows.is_empty() {
+                    self.focus_window(&slide.windows[slide.active_window])
+                }
+                slide.rearrange();
             }
             Action::CycleTiling => {
                 desktop

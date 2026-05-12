@@ -5,13 +5,17 @@ pub mod lifecycle;
 pub mod output;
 pub mod seat;
 pub mod slide;
+pub mod task;
 pub mod utils;
 pub mod window;
 pub mod workspace;
 
 use crate::wm::desktop::Desktop;
+use crate::wm::task::Task;
 use crate::wm::window::WindowLocation;
 use std::collections::HashMap;
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
 use wayland_backend::client::ObjectId;
 
 use crate::actions::Action;
@@ -34,7 +38,7 @@ pub enum LayerFocus {
     NonExclusive,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SeatOp {
     None,
     Pan {
@@ -56,13 +60,15 @@ pub enum SeatOp {
     },
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct WindowManager {
     pub desktop: Desktop,
     pub windows: HashMap<RiverWindowV1, Window>,
     pub outputs: HashMap<ObjectId, Output>,
     pub seats: HashMap<ObjectId, Seat>,
     pub libinput_devices: HashMap<ObjectId, LibinputDevice>,
+    queue_rx: Receiver<Task>,
+    pub queue_tx: Sender<Task>,
 
     // TODO: combine camera_x/y into one camera_pos tuple
     // Also, this should very much come with dimensions (I think)
@@ -82,17 +88,15 @@ pub struct Window {
     pub y: i32,
     pub width: i32,
     pub height: i32,
-    pub target_dimensions: Option<(i32, i32)>,
     pub target_position: Option<(i32, i32)>,
 
-    pub unmaximized_geometry: Option<(i32, i32, i32, i32)>,
     pub new: bool,
     pub closed: bool,
+    pub maximized: bool,
+
     pub pointer_move_requested: Option<RiverSeatV1>,
     pub pointer_resize_requested: Option<RiverSeatV1>,
     pub pointer_resize_requested_edges: Edges,
-    pub relayout_requested: bool,
-    pub maximize_requested: Option<bool>,
 }
 
 #[derive(Debug)]
@@ -115,6 +119,7 @@ pub struct Output {
 #[derive(Debug)]
 pub struct Seat {
     pub proxy: RiverSeatV1,
+    queue_tx: Sender<Task>,
     pub new: bool,
     pub removed: bool,
     pub focused: Option<RiverWindowV1>,

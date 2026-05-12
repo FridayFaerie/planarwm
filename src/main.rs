@@ -8,9 +8,6 @@ mod process;
 mod protocol;
 mod wm;
 
-use std::fmt::Debug;
-use wayland_client::Connection;
-
 use crate::config::{Config, load_config};
 use crate::river::{
     river_input_manager_v1::RiverInputManagerV1, river_layer_shell_v1::RiverLayerShellV1,
@@ -19,10 +16,12 @@ use crate::river::{
 };
 use crate::wm::{Output, Window, WindowManager};
 use process::spawn_shell;
+use std::fmt::Debug;
+use wayland_client::Connection;
 
 pub use protocol::river;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct AppData {
     config: Config,
     river_wm: Option<RiverWindowManagerV1>,
@@ -44,8 +43,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initial state
     // TODO: I can probably split off this config section and not use clone someday
     let mut app_data = AppData {
-        config: config.clone(),
-        ..Default::default()
+        config,
+        river_wm: None,
+        river_xkb: None,
+        river_ls: None,
+        river_im: None,
+        river_lc: None,
+        wm: WindowManager::new(),
     };
 
     // Roundtrip to process the get_registry event and bind interfaces.
@@ -59,7 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
-    for program in &config.startup {
+    for program in &app_data.config.startup {
         spawn_shell(program)
     }
 
