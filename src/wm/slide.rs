@@ -73,7 +73,11 @@ impl Slide {
         }
     }
 
-    pub fn rearrange(&self) {
+    pub fn rearrange(&mut self) {
+        if self.active_window >= self.windows.len() {
+            self.active_window = self.windows.len() - 1;
+        }
+
         let bounds = Rect {
             x: self.position.0,
             y: self.position.1,

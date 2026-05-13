@@ -147,6 +147,8 @@ impl WindowManager {
 
         self.move_windows_to_target();
 
+        // TODO: find some way to run this every time camera is moved, doesn't seem smart to do
+        // this all the time
         for seat in self.seats.values_mut() {
             if seat.op != SeatOp::None {
                 for window in self.windows.values_mut() {
@@ -173,7 +175,7 @@ impl WindowManager {
 
     pub fn remove_windows(&mut self) {
         let old_windows = std::mem::take(&mut self.windows);
-        // TODO: replace this with a function within windows
+        // TODO: replace this with a task
         self.windows = old_windows
             .into_iter()
             .filter(|(_, window)| {

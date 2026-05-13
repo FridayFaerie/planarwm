@@ -8,6 +8,23 @@ impl Task {
         //     println!("performing {:?}", self);
         // }
         match self {
+            Task::CloseWindow { window_id } => {
+                if phase == Phase::Manage {
+                    // TODO: include everything in lifecycle.rs under if window.closed
+                    // TODO: make this use the window's slide, instead of the active slide
+                    let slide = wm.desktop.active_workspace_mut().active_slide_mut();
+                    window_id.close();
+                    slide.windows.remove(slide.active_window);
+                    slide.rearrange();
+                    if !slide.windows.is_empty() {
+                        for seat in wm.seats.values_mut() {
+                            seat.focus_window(&slide.windows[slide.active_window])
+                        }
+                    };
+                    return true;
+                }
+                return false;
+            }
             Task::SetWindowGeometry {
                 window_id,
                 pos,
@@ -114,6 +131,9 @@ pub enum Phase {
 
 #[derive(Debug)]
 pub enum Task {
+    CloseWindow {
+        window_id: RiverWindowV1,
+    },
     SetWindowGeometry {
         window_id: RiverWindowV1,
         pos: Position,
