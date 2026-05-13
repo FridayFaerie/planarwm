@@ -12,6 +12,7 @@ pub mod workspace;
 
 use crate::wm::desktop::Desktop;
 use crate::wm::task::Task;
+use crate::wm::utils::Position;
 use crate::wm::window::WindowLocation;
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
@@ -88,7 +89,10 @@ pub struct Window {
     pub y: i32,
     pub width: i32,
     pub height: i32,
-    pub target_position: Option<(i32, i32)>,
+
+    pub original_position: Position,
+    pub render_position: Option<Position>,
+    pub current_position: Position,
 
     pub new: bool,
     pub closed: bool,

@@ -1,4 +1,4 @@
-use std::ops::Sub;
+use std::ops::{Add, AddAssign, Mul, Sub};
 
 // TODO: maybe change Rect into {Position,Dimensions}
 #[derive(Debug, Clone, Copy)]
@@ -16,7 +16,7 @@ pub struct Dimension {
     pub height: i32,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -43,6 +43,50 @@ impl Sub for Dimension {
         Dimension {
             width: self.width - rhs.width,
             height: self.height - rhs.height,
+        }
+    }
+}
+
+impl Sub for Position {
+    type Output = Position;
+    fn sub(self, rhs: Position) -> Position {
+        Position {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+impl Add for Position {
+    type Output = Position;
+    fn add(self, rhs: Position) -> Position {
+        Position {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+// TODO: remove?
+impl AddAssign<&mut Position> for Position {
+    fn add_assign(&mut self, rhs: &mut Position) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+impl AddAssign<Position> for Position {
+    fn add_assign(&mut self, rhs: Position) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+impl Mul<f32> for Position {
+    type Output = Position;
+    fn mul(self, rhs: f32) -> Position {
+        Position {
+            x: (self.x as f32 * rhs) as i32,
+            y: (self.y as f32 * rhs) as i32,
         }
     }
 }

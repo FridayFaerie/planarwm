@@ -1,6 +1,7 @@
 use crate::AppData;
 use crate::Window;
 use crate::river::river_window_v1::{Edges, RiverWindowV1};
+use crate::wm::utils::Position;
 use wayland_client::QueueHandle;
 
 impl Window {
@@ -11,12 +12,16 @@ impl Window {
             node,
             title: "unknown".to_string(),
             location: None,
-            // TODO: remove the default x,y,w,h: 0
+            // TODO: remove the default x,y,w,h
             x: 0,
             y: 0,
             width: 0,
             height: 0,
-            target_position: None,
+
+            // TODO: maybe not default to 0?
+            original_position: Position { x: 0, y: 0 },
+            render_position: None,
+            current_position: Position { x: 0, y: 0 },
 
             new: true,
             maximized: false,
@@ -28,13 +33,16 @@ impl Window {
         }
     }
 
-    pub fn set_position(&mut self, x: i32, y: i32) {
-        self.x = x;
-        self.y = y;
-    }
-
     pub fn set_node_position(&mut self, camera_x: i32, camera_y: i32) {
-        self.node.set_position(self.x - camera_x, self.y - camera_y);
+        if let Some(render_position) = self.render_position {
+            self.node
+                .set_position(render_position.x - camera_x, render_position.y - camera_y);
+        } else {
+            self.node.set_position(
+                self.current_position.x - camera_x,
+                self.current_position.y - camera_y,
+            );
+        }
     }
 }
 

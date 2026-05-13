@@ -30,18 +30,23 @@ impl WindowManager {
             camera_y: 0,
         }
     }
-    pub fn tick_tasks(&mut self, phase: Phase) {
+    pub fn tick_tasks(&mut self, phase: Phase) -> usize {
         let mut pending = Vec::new();
 
         while let Ok(task) = self.queue_rx.try_recv() {
             pending.push(task);
         }
 
+        let queue_length = pending.len();
+
         for mut task in pending {
-            if !task.step(self, phase) {
+            // TODO: is cloning here the right move?
+            if !task.step(self, phase, self.queue_tx.clone()) {
                 self.queue_tx.send(task).expect("Couldn't requeue task!");
             }
         }
+
+        return queue_length;
     }
 
     pub fn handle_manage_start(
@@ -51,7 +56,9 @@ impl WindowManager {
         qh: &QueueHandle<AppData>,
         config: &Config,
     ) {
-        self.tick_tasks(Phase::Manage);
+        if self.tick_tasks(Phase::Manage) > 0 {
+            proxy.manage_dirty();
+        }
 
         self.remove_outputs();
         self.remove_seats();
@@ -89,6 +96,7 @@ impl WindowManager {
                 workspace.child_rearrange_required = true;
             }
         }
+        self.set_window_node_positions();
         proxy.manage_finish();
     }
 
@@ -103,19 +111,20 @@ impl WindowManager {
                     self.camera_y = start_y - seat.op_dy * 2;
                 }
                 SeatOp::Move {
-                    window_proxy,
-                    start_x,
-                    start_y,
+                    // window_proxy,
+                    // start_x,
+                    // start_y,
+                    ..
                 } => {
-                    if let Some(window) = self
-                        .windows
-                        .values_mut()
-                        .find(|window| &window.proxy == window_proxy)
-                    {
-                        let x = start_x + seat.op_dx;
-                        let y = start_y + seat.op_dy;
-                        window.set_position(x, y);
-                    }
+                    // if let Some(window) = self
+                    //     .windows
+                    //     .values_mut()
+                    //     .find(|window| &window.proxy == window_proxy)
+                    // {
+                    //     let x = start_x + seat.op_dx;
+                    //     let y = start_y + seat.op_dy;
+                    //     window.set_position(x, y);
+                    // }
                 }
                 // This code "saves" the position as the resize goes on
                 SeatOp::Resize {
@@ -145,19 +154,29 @@ impl WindowManager {
             }
         }
 
-        self.move_windows_to_target();
-
-        // TODO: find some way to run this every time camera is moved, doesn't seem smart to do
-        // this all the time
-        for seat in self.seats.values_mut() {
-            if seat.op != SeatOp::None {
-                for window in self.windows.values_mut() {
-                    window.set_node_position(self.camera_x, self.camera_y);
-                }
-            }
-        }
+        self.set_window_node_positions();
+        // for seat in self.seats.values_mut() {
+        //     if seat.op != SeatOp::None {
+        //         for window in self.windows.values_mut() {
+        //             window.set_node_position(self.camera_x, self.camera_y);
+        //         }
+        //     }
+        // }
 
         proxy.render_finish();
+    }
+
+    pub fn set_window_node_positions(&mut self) {
+        // TODO: is there a way to not do this so frequently?
+        // TODO: is there a better way to do this?
+        for window in self.windows.values_mut() {
+            if let Some(render_position) = window.render_position.take() {
+                window.node.set_position(
+                    render_position.x - self.camera_x,
+                    render_position.y - self.camera_y,
+                );
+            }
+        }
     }
 
     pub fn remove_outputs(&mut self) {
@@ -376,14 +395,6 @@ impl WindowManager {
                 seat.op_release = false;
             } else {
                 seat.op_manage();
-            }
-        }
-    }
-
-    pub fn move_windows_to_target(&mut self) {
-        for window in self.windows.values_mut() {
-            if let Some(position) = window.target_position.take() {
-                (window.x, window.y) = position;
             }
         }
     }

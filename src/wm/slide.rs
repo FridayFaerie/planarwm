@@ -1,4 +1,5 @@
 use std::sync::mpsc::Sender;
+use std::time::Instant;
 
 use crate::wm::task::Task;
 use crate::wm::utils::{Dimension, Position};
@@ -74,6 +75,10 @@ impl Slide {
     }
 
     pub fn rearrange(&mut self) {
+        if self.windows.len() == 0 {
+            return;
+        }
+
         if self.active_window >= self.windows.len() {
             self.active_window = self.windows.len() - 1;
         }
@@ -92,15 +97,10 @@ impl Slide {
     }
 
     fn vertscroll_rearrange(&self, bounds: Rect) {
-        let slide_size = self.windows.len();
         let outer_gaps = 20;
         let inner_gaps = 10;
         let window_width = bounds.width - 2 * outer_gaps;
         let window_height = bounds.height - 2 * outer_gaps;
-
-        if slide_size == 0 {
-            return;
-        };
 
         let active_index = self.active_window;
 
@@ -116,6 +116,7 @@ impl Slide {
                         width: window_width,
                         height: window_height,
                     },
+                    timer: Instant::now(),
                 })
                 .expect("couldn't send window geometry...");
         }
@@ -132,6 +133,7 @@ impl Slide {
                         width: window_width,
                         height: window_height,
                     },
+                    timer: Instant::now(),
                 })
                 .expect("couldn't send window geometry...");
         }
@@ -139,10 +141,6 @@ impl Slide {
 
     fn master_rearrange(&self, bounds: Rect) {
         let slide_size = self.windows.len();
-
-        if slide_size == 0 {
-            return;
-        }
 
         let master_w = if slide_size > 1 {
             bounds.width / 2
@@ -163,6 +161,7 @@ impl Slide {
                             width: master_w,
                             height: bounds.height,
                         },
+                        timer: Instant::now(),
                     })
                     .expect("couldn't send window geometry...");
             } else {
@@ -180,6 +179,7 @@ impl Slide {
                             width: bounds.width - master_w,
                             height: stack_h,
                         },
+                        timer: Instant::now(),
                     })
                     .expect("couldn't send window geometry...");
             }
