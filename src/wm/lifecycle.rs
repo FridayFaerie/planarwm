@@ -69,7 +69,8 @@ impl WindowManager {
         self.manage_seats(proxy);
 
         self.init_new_windows(&config.window);
-        self.manage_layout();
+        // TODO: remove
+        // self.manage_layout();
         self.manage_windows();
 
         // TODO: move this block into its own function?
@@ -80,7 +81,7 @@ impl WindowManager {
                 // if there are windows in active slide, seat.focus_window
                 // rearrange workspace's children
                 let active_slide = &mut workspace.slides[workspace.active_slide];
-                (self.camera_x, self.camera_y) = active_slide.position;
+                (self.camera_x, self.camera_y) = (active_slide.position.x, active_slide.position.y);
                 // TODO: next_window comes here, can I refactor focus_nearest somewhere else?
                 // active_slide.focus_nearest();
 
@@ -156,13 +157,15 @@ impl WindowManager {
         }
 
         self.set_window_node_positions();
-        // for seat in self.seats.values_mut() {
-        //     if seat.op != SeatOp::None {
-        //         for window in self.windows.values_mut() {
-        //             window.set_node_position(self.camera_x, self.camera_y);
-        //         }
-        //     }
-        // }
+
+        // TODO: this is kinda overdoing it with the set_window_node_positions code
+        for seat in self.seats.values_mut() {
+            if seat.op != SeatOp::None {
+                for window in self.windows.values_mut() {
+                    window.set_node_position(self.camera_x, self.camera_y);
+                }
+            }
+        }
 
         proxy.render_finish();
     }
@@ -215,15 +218,7 @@ impl WindowManager {
                             workspace.slides.iter_mut().find(|s| s.id == loc.slide_id)
                     {
                         slide.windows.retain(|w| w != &window.proxy);
-                        slide.rearrange_required = true;
-                        // TODO: remove
-                        // slide.focus_nearest_required = true;
-                        // TODO:
-                        // workspace.focus_active_requested = true;
-                        // set camera focus to active slide
-                        // active_slide.focus_nearest()
-                        // if there are windows in active slide, seat.focus_window
-                        // rearrange workspace's children
+                        slide.rearrange();
                     }
 
                     return false;
@@ -371,7 +366,14 @@ impl WindowManager {
 
                     if let Some(slide) = workspace.slides.get_mut(workspace.active_slide) {
                         if slide.slide_type != SlideType::Floating {
-                            (*camera_x, *camera_y) = slide.position;
+                            self.queue_tx
+                                .send(Task::MoveCamera {
+                                    position: Position {
+                                        x: slide.position.x,
+                                        y: slide.position.y,
+                                    },
+                                })
+                                .expect("can't send movecamera");
                         }
                         slide.active_window = slide
                             .windows
@@ -396,30 +398,6 @@ impl WindowManager {
                 seat.op_release = false;
             } else {
                 seat.op_manage();
-            }
-        }
-    }
-
-    pub fn manage_layout(&mut self) {
-        // TODO: I don't like this code - fix this
-        for workspace in self.desktop.workspaces.values_mut() {
-            if workspace.child_rearrange_required {
-                for (index, slide) in workspace.slides.iter_mut().enumerate() {
-                    // TODO: remove
-                    // if slide.focus_nearest_required {
-                    //     slide.focus_nearest();
-                    //     slide.focus_nearest_required = false;
-                    // }
-                    if slide.rearrange_required {
-                        slide.position = (
-                            workspace.coord.0,
-                            workspace.coord.1 + workspace.dimensions.1 * (index as i32),
-                        );
-                        slide.rearrange();
-                        slide.rearrange_required = false;
-                    }
-                }
-                workspace.child_rearrange_required = false;
             }
         }
     }

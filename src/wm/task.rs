@@ -13,17 +13,30 @@ impl Task {
         match self {
             Task::CloseWindow { window_id } => {
                 if phase == Phase::Manage {
-                    // TODO: include everything in lifecycle.rs under if window.closed
-                    // TODO: make this use the window's slide, instead of the active slide
-                    let slide = wm.desktop.active_workspace_mut().active_slide_mut();
-                    window_id.close();
-                    slide.windows.remove(slide.active_window);
-                    slide.rearrange();
-                    if !slide.windows.is_empty() {
-                        for seat in wm.seats.values_mut() {
-                            seat.focus_window(&slide.windows[slide.active_window])
+                    for seat in wm.seats.values_mut() {
+                        if let SeatOp::Move { window_proxy, .. }
+                        | SeatOp::Resize { window_proxy, .. } = &seat.op
+                            && window_proxy == window_id
+                        {
+                            seat.op_end();
                         }
-                    };
+                    }
+                    if let Some(window) = wm.windows.get_mut(window_id)
+                        && let Some(loc) = &window.location
+                        && let Some(workspace) = wm.desktop.workspaces.get_mut(&loc.workspace_id)
+                        && let Some(slide) =
+                            workspace.slides.iter_mut().find(|s| s.id == loc.slide_id)
+                    {
+                        slide.windows.remove(slide.active_window);
+                        slide.rearrange();
+                        if !slide.windows.is_empty() {
+                            for seat in wm.seats.values_mut() {
+                                seat.focus_window(&slide.windows[slide.active_window])
+                            }
+                        };
+                    }
+                    wm.windows.remove(window_id);
+                    window_id.close();
                     return true;
                 }
                 false
@@ -36,8 +49,6 @@ impl Task {
             } => {
                 let window = wm.windows.get_mut(window_id).expect("window not found!!");
                 let diff_pos = *pos - window.current_position;
-                let diff_width = dim.width - window.width;
-                let diff_height = dim.height - window.height;
                 window.current_position = *pos;
                 if (diff_pos != Position { x: 0, y: 0 }) {
                     queue_tx
@@ -49,30 +60,16 @@ impl Task {
                         })
                         .expect("couldn't send movewindow");
                 }
-                // TODO: fix
-                if diff_width != 0 || diff_height != 0 {
-                    queue_tx
-                        .send(Task::ResizeWindow {
-                            window_id: window_id.clone(),
-                            diff_dim: Dimension {
-                                width: diff_width,
-                                height: diff_height,
-                            },
-                            timer: timer.clone(),
-                            duration: Duration::from_secs(0),
-                        })
-                        .expect("couldn't send resizewindow");
-                }
-                return true;
-                // if phase == Phase::Manage {
-                //     let width = dim.width;
-                //     let height = dim.height;
-                //     (window.width, window.height) = (width, height);
-                //     window.proxy.propose_dimensions(width, height);
-                //     return true;
-                // } else {
-                //     return false;
-                // }
+                // TODO: add animations
+                queue_tx
+                    .send(Task::ResizeWindow {
+                        window_id: window_id.clone(),
+                        dim: *dim,
+                        timer: *timer,
+                        duration: Duration::from_secs(0),
+                    })
+                    .expect("couldn't send resizewindow");
+                true
             }
             // animation to move window by diff_pos
             Task::MoveWindow {
@@ -113,14 +110,14 @@ impl Task {
             }
             Task::ResizeWindow {
                 window_id,
-                diff_dim,
+                dim,
                 timer,
                 duration,
             } => {
                 if phase == Phase::Manage && timer.elapsed() > *duration {
                     if let Some(window) = wm.windows.get_mut(window_id) {
-                        let width = window.width + diff_dim.width;
-                        let height = window.height + diff_dim.height;
+                        let width = dim.width;
+                        let height = dim.height;
                         (window.width, window.height) = (width, height);
                         window.proxy.propose_dimensions(width, height);
                     }
@@ -199,7 +196,7 @@ pub enum Task {
     },
     ResizeWindow {
         window_id: RiverWindowV1,
-        diff_dim: Dimension,
+        dim: Dimension,
         timer: Instant,
         duration: Duration,
     },

@@ -5,6 +5,7 @@ use crate::wm::HashMap;
 use crate::wm::RiverWindowV1;
 use crate::wm::slide::Slide;
 use crate::wm::task::Task;
+use crate::wm::utils::Position;
 
 #[derive(Debug)]
 pub struct Workspace {
@@ -45,10 +46,10 @@ impl Workspace {
     pub fn rearrange(&mut self) {
         let inner_gaps = -30;
         for (index, slide) in self.slides.iter_mut().enumerate() {
-            slide.position = (
-                self.coord.0,
-                self.coord.1 + (index as i32) * (self.dimensions.1 + inner_gaps),
-            );
+            slide.position = Position {
+                x: self.coord.0,
+                y: self.coord.1 + (index as i32) * (self.dimensions.1 + inner_gaps),
+            };
             slide.rearrange();
         }
     }
@@ -63,8 +64,7 @@ impl Workspace {
             .get_mut(self.active_slide)
             .unwrap_or_else(|| panic!("can't find active slide!!"));
         let window_id = active_slide.windows.remove(active_slide.active_window);
-        active_slide.rearrange_required = true;
-        self.child_rearrange_required = true;
+        active_slide.rearrange();
         self.next_slide();
         let active_slide = self
             .slides
@@ -83,8 +83,7 @@ impl Workspace {
             .get_mut(self.active_slide)
             .unwrap_or_else(|| panic!("can't find active slide!!"));
         let window_id = active_slide.windows.remove(active_slide.active_window);
-        active_slide.rearrange_required = true;
-        self.child_rearrange_required = true;
+        active_slide.rearrange();
         self.prev_slide();
         let active_slide = self
             .slides
@@ -103,7 +102,6 @@ impl Workspace {
 
         if current_slide.windows.is_empty() {
             if new_slide_index == self.slides.len() {
-                return;
             } else {
                 self.slides.remove(self.active_slide);
                 self.rearrange();

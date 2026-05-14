@@ -11,7 +11,6 @@ use crate::river::{
 };
 use crate::wm::desktop::Desktop;
 use crate::wm::task::Task;
-use crate::wm::utils::Position;
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use wayland_backend::client::ObjectId;
@@ -141,15 +140,10 @@ impl Seat {
             Action::PrevSlide => {
                 let workspace = desktop.active_workspace_mut();
                 workspace.prev_slide();
-                let coord = workspace.slides[workspace.active_slide].position;
+                let position = workspace.slides[workspace.active_slide].position;
                 // TODO: replace coord with Position
                 self.queue_tx
-                    .send(Task::MoveCamera {
-                        position: Position {
-                            x: coord.0,
-                            y: coord.1,
-                        },
-                    })
+                    .send(Task::MoveCamera { position })
                     .expect("couldn't send prevslide");
                 let slide = workspace.active_slide_mut();
                 if !slide.windows.is_empty() {
@@ -159,15 +153,10 @@ impl Seat {
             Action::NextSlide => {
                 let workspace = desktop.active_workspace_mut();
                 workspace.next_slide();
-                let coord = workspace.slides[workspace.active_slide].position;
+                let position = workspace.slides[workspace.active_slide].position;
                 // TODO: replace coord with Position
                 self.queue_tx
-                    .send(Task::MoveCamera {
-                        position: Position {
-                            x: coord.0,
-                            y: coord.1,
-                        },
-                    })
+                    .send(Task::MoveCamera { position })
                     .expect("couldn't send nextslide");
                 let slide = workspace.active_slide_mut();
                 if !slide.windows.is_empty() {
@@ -178,13 +167,13 @@ impl Seat {
                 let workspace = desktop.active_workspace_mut();
                 workspace.moveto_next_slide(windows);
                 let coord = workspace.slides[workspace.active_slide].position;
-                (*camera_x, *camera_y) = (coord.0, coord.1);
+                (*camera_x, *camera_y) = (coord.x, coord.y);
             }
             Action::MoveToPrevSlide => {
                 let workspace = desktop.active_workspace_mut();
                 workspace.moveto_prev_slide(windows);
                 let coord = workspace.slides[workspace.active_slide].position;
-                (*camera_x, *camera_y) = (coord.0, coord.1);
+                (*camera_x, *camera_y) = (coord.x, coord.y);
             }
             Action::PrevWindow => {
                 let slide = desktop.active_workspace_mut().active_slide_mut();

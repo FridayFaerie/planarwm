@@ -172,7 +172,13 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
             None => return,
         };
         match event {
-            Event::Closed => window.closed = true,
+            Event::Closed => state
+                .wm
+                .queue_tx
+                .send(Task::CloseWindow {
+                    window_id: window.proxy.clone(),
+                })
+                .expect("couldn't send closewindow"),
             Event::DimensionsHint {
                 min_width: _,
                 min_height: _,
@@ -194,7 +200,7 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
                     .iter_mut()
                     .find(|s| s.id == location.slide_id)
                     .unwrap()
-                    .rearrange_required = true;
+                    .rearrange();
             }
             Event::AppId { app_id: _ } => {}
             Event::Title { title } => {

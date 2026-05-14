@@ -20,11 +20,10 @@ pub enum SlideType {
 pub struct Slide {
     pub id: u16,
     pub slide_type: SlideType,
-    pub position: (i32, i32),
+    pub position: Position,
     pub dimensions: (i32, i32),
     pub windows: Vec<RiverWindowV1>,
     pub active_window: usize,
-    pub rearrange_required: bool,
     queue_tx: Sender<Task>,
 }
 
@@ -33,17 +32,21 @@ impl Slide {
         Self {
             id,
             slide_type: SlideType::VerticalScroll,
-            position: (0, 0),
+            position: Position { x: 0, y: 0 },
             dimensions,
             windows: Vec::new(),
             active_window: 0,
-            rearrange_required: true,
             queue_tx,
         }
     }
 
     pub fn attach_window(&mut self, window_id: RiverWindowV1) {
-        self.windows.insert(self.active_window, window_id);
+        if self.windows.is_empty() {
+            self.windows.insert(0, window_id);
+        } else {
+            self.active_window += 1;
+            self.windows.insert(self.active_window, window_id);
+        }
         self.rearrange();
     }
 
@@ -80,8 +83,8 @@ impl Slide {
         }
 
         let bounds = Rect {
-            x: self.position.0,
-            y: self.position.1,
+            x: self.position.x,
+            y: self.position.y,
             width: self.dimensions.0,
             height: self.dimensions.1,
         };
