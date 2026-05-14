@@ -71,7 +71,7 @@ impl Slide {
     }
 
     pub fn rearrange(&mut self) {
-        if self.windows.len() == 0 {
+        if self.windows.is_empty() {
             return;
         }
 
@@ -107,7 +107,7 @@ impl Slide {
             self.queue_tx
                 .send(Task::SetWindowGeometry {
                     window_id: self.windows[index].clone(),
-                    pos: Position { x: x, y: y },
+                    pos: Position { x, y },
                     dim: Dimension {
                         width: window_width,
                         height: window_height,
@@ -124,7 +124,7 @@ impl Slide {
             self.queue_tx
                 .send(Task::SetWindowGeometry {
                     window_id: self.windows[index].clone(),
-                    pos: Position { x: x, y: y },
+                    pos: Position { x, y },
                     dim: Dimension {
                         width: window_width,
                         height: window_height,

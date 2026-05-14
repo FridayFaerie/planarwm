@@ -47,6 +47,7 @@ impl Desktop {
         let queue_tx = self.queue_tx.clone();
         let ws = self.active_workspace_mut();
         if ws.slides.is_empty() {
+            // TODO: make a "new_slide() function maybe?"
             ws.slides.push(Slide::new(0, ws.dimensions, queue_tx));
             ws.active_slide = 0;
             ws.child_rearrange_required = true;

@@ -101,16 +101,6 @@ impl Seat {
                         .send(Task::CloseWindow { window_id })
                         .expect("couldn't closewindow");
                 }
-                // TODO: remove
-                // if let Some(window_proxy) = self.focused.as_ref() {
-                //     let slide = desktop.active_workspace_mut().active_slide_mut();
-                //     window_proxy.close();
-                //     slide.windows.remove(slide.active_window);
-                //     slide.rearrange();
-                //     if !slide.windows.is_empty() {
-                //         self.focus_window(&slide.windows[slide.active_window])
-                //     }
-                // }
             }
             Action::CenterFocused => {
                 if let Some(window_proxy) = self.focused.as_ref() {

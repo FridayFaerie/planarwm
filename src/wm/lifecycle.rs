@@ -10,7 +10,8 @@ use crate::river::{
 use crate::wm::RiverWindowV1;
 use crate::wm::desktop::Desktop;
 use crate::wm::slide::SlideType;
-use crate::wm::task::Phase;
+use crate::wm::task::{Phase, Task};
+use crate::wm::utils::Position;
 use std::collections::HashMap;
 use std::sync::mpsc;
 use wayland_client::QueueHandle;
@@ -46,7 +47,7 @@ impl WindowManager {
             }
         }
 
-        return queue_length;
+        queue_length
     }
 
     pub fn handle_manage_start(
@@ -136,7 +137,7 @@ impl WindowManager {
                     // edges,
                     ..
                 } => {
-                    if let Some(_) = self
+                    if let Some(_window) = self
                         .windows
                         .values_mut()
                         .find(|window| &window.proxy == window_proxy)

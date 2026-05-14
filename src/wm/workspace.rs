@@ -39,7 +39,7 @@ impl Workspace {
 
     pub fn new_slide_id(&mut self) -> u16 {
         self.new_slide_id += 1;
-        return self.new_slide_id;
+        self.new_slide_id
     }
 
     pub fn rearrange(&mut self) {

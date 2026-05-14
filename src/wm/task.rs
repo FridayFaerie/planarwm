@@ -1,6 +1,6 @@
 use crate::WindowManager;
-use crate::wm::RiverWindowV1;
 use crate::wm::utils::{Dimension, Position};
+use crate::wm::{RiverWindowV1, SeatOp};
 use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
 
@@ -26,7 +26,7 @@ impl Task {
                     };
                     return true;
                 }
-                return false;
+                false
             }
             Task::SetWindowGeometry {
                 window_id,
@@ -44,8 +44,8 @@ impl Task {
                         .send(Task::MoveWindow {
                             window_id: window_id.clone(),
                             diff_pos,
-                            timer: timer.clone(),
-                            duration: Duration::from_secs_f32(0.4),
+                            timer: *timer,
+                            duration: Duration::from_millis(300),
                         })
                         .expect("couldn't send movewindow");
                 }
@@ -85,8 +85,7 @@ impl Task {
                     let elapsed = timer.elapsed();
 
                     if elapsed > *duration {
-                        // TODO: why do I need a clone here
-                        window.original_position += diff_pos.clone();
+                        window.original_position += *diff_pos;
                         // window.set_node_position(wm.camera_x, wm.camera_y);
                         if let Some(mut render_position) = window.render_position {
                             render_position += diff_pos;
@@ -107,9 +106,9 @@ impl Task {
                         window.render_position = Some(window.original_position + partial_diff_pos);
                     }
 
-                    return false;
+                    false
                 } else {
-                    return true;
+                    true
                 }
             }
             Task::ResizeWindow {
@@ -127,7 +126,7 @@ impl Task {
                     }
                     return true;
                 }
-                return false;
+                false
             }
             Task::MaximizeWindow { window_id } => {
                 if phase == Phase::Manage
@@ -149,7 +148,7 @@ impl Task {
                     }
                     return true;
                 }
-                return false;
+                false
             }
             Task::MoveCamera { position } => {
                 // TODO: remove all code that uses camera_x and camera_y?
@@ -159,7 +158,7 @@ impl Task {
                 for window in wm.windows.values_mut() {
                     window.set_node_position(position.x, position.y);
                 }
-                return true;
+                true
             } // TODO: maybe remove this?
 
               // Task::FocusActive {} => {
