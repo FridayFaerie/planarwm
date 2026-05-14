@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2026 Julian Andrews
+SPDX-FileCopyrightText: © 2026 FridayFaerie
 SPDX-License-Identifier: 0BSD
 -->
 
