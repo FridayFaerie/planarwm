@@ -87,7 +87,7 @@ impl Task {
                         if let Some(mut render_position) = window.render_position {
                             render_position += diff_pos;
                         }
-                        window.set_node_position(wm.camera_x, wm.camera_y);
+                        window.set_node_position(wm.camera_pos);
                         return true;
                     }
 
@@ -135,10 +135,10 @@ impl Task {
                         if let Some((width, height)) =
                             wm.outputs.values().find_map(|output| output.dimensions)
                         {
-                            (window.x, window.y) = (wm.camera_x, wm.camera_y);
+                            (window.x, window.y) = (wm.camera_pos.x, wm.camera_pos.y);
                             (window.width, window.height) = (width, height);
                             window.proxy.propose_dimensions(width, height);
-                            window.node.set_position(wm.camera_x, wm.camera_y);
+                            window.node.set_position(wm.camera_pos.x, wm.camera_pos.y);
                             // NOTE: not informing because they're already maximized :)
                             // window.proxy.inform_maximized()
                         }
@@ -148,16 +148,13 @@ impl Task {
                 false
             }
             Task::MoveCamera { position } => {
-                // TODO: remove all code that uses camera_x and camera_y?
-                (wm.camera_x, wm.camera_y) = (position.x, position.y);
+                wm.camera_pos = *position;
 
-                // TODO: change position to position....
                 for window in wm.windows.values_mut() {
-                    window.set_node_position(position.x, position.y);
+                    window.set_node_position(*position);
                 }
                 true
             } // TODO: maybe remove this?
-
               // Task::FocusActive {} => {
               //     let slide = wm.desktop.active_workspace_mut().active_slide_mut();
               //     if !slide.windows.is_empty() {

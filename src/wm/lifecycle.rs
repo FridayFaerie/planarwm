@@ -27,8 +27,7 @@ impl WindowManager {
             libinput_devices: HashMap::new(),
             queue_tx,
             queue_rx,
-            camera_x: 0,
-            camera_y: 0,
+            camera_pos: Position { x: 0, y: 0 },
         }
     }
     pub fn tick_tasks(&mut self, phase: Phase) -> usize {
@@ -81,7 +80,7 @@ impl WindowManager {
                 // if there are windows in active slide, seat.focus_window
                 // rearrange workspace's children
                 let active_slide = &mut workspace.slides[workspace.active_slide];
-                (self.camera_x, self.camera_y) = (active_slide.position.x, active_slide.position.y);
+                self.camera_pos = active_slide.position;
                 // TODO: next_window comes here, can I refactor focus_nearest somewhere else?
                 // active_slide.focus_nearest();
 
@@ -109,8 +108,8 @@ impl WindowManager {
             match &seat.op {
                 SeatOp::None => {}
                 SeatOp::Pan { start_x, start_y } => {
-                    self.camera_x = start_x - seat.op_dx * 2;
-                    self.camera_y = start_y - seat.op_dy * 2;
+                    // TODO: why isn't this auto-formatting?
+                    self.camera_pos = Position { x : start_x - seat.op_dx * 2, y : start_y - seat.op_dy * 2 };
                 }
                 SeatOp::Move {
                     // window_proxy,
@@ -162,7 +161,7 @@ impl WindowManager {
         for seat in self.seats.values_mut() {
             if seat.op != SeatOp::None {
                 for window in self.windows.values_mut() {
-                    window.set_node_position(self.camera_x, self.camera_y);
+                    window.set_node_position(self.camera_pos);
                 }
             }
         }
@@ -176,8 +175,8 @@ impl WindowManager {
         for window in self.windows.values_mut() {
             if let Some(render_position) = window.render_position.take() {
                 window.node.set_position(
-                    render_position.x - self.camera_x,
-                    render_position.y - self.camera_y,
+                    render_position.x - self.camera_pos.x,
+                    render_position.y - self.camera_pos.y,
                 );
             }
         }
@@ -345,8 +344,7 @@ impl WindowManager {
     pub fn manage_seats(&mut self, wm_proxy: &RiverWindowManagerV1) {
         let desktop = &mut self.desktop;
         let windows = &mut self.windows;
-        let camera_x = &mut self.camera_x;
-        let camera_y = &mut self.camera_y;
+        let camera_pos = &mut self.camera_pos;
 
         for seat in self.seats.values_mut() {
             if let Some(window_proxy) = seat.interacted.take() {
@@ -385,14 +383,7 @@ impl WindowManager {
                 }
             }
 
-            seat.do_action(
-                desktop,
-                windows,
-                &self.outputs,
-                wm_proxy,
-                camera_x,
-                camera_y,
-            );
+            seat.do_action(desktop, windows, &self.outputs, wm_proxy, camera_pos);
             if seat.op_release {
                 seat.op_end();
                 seat.op_release = false;

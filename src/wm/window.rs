@@ -33,14 +33,16 @@ impl Window {
         }
     }
 
-    pub fn set_node_position(&mut self, camera_x: i32, camera_y: i32) {
+    pub fn set_node_position(&mut self, camera_pos: Position) {
         if let Some(render_position) = self.render_position {
-            self.node
-                .set_position(render_position.x - camera_x, render_position.y - camera_y);
+            self.node.set_position(
+                render_position.x - camera_pos.x,
+                render_position.y - camera_pos.y,
+            );
         } else {
             self.node.set_position(
-                self.current_position.x - camera_x,
-                self.current_position.y - camera_y,
+                self.current_position.x - camera_pos.x,
+                self.current_position.y - camera_pos.y,
             );
         }
     }

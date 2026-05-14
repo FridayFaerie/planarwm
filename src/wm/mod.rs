@@ -70,12 +70,7 @@ pub struct WindowManager {
     pub libinput_devices: HashMap<ObjectId, LibinputDevice>,
     queue_rx: Receiver<Task>,
     pub queue_tx: Sender<Task>,
-
-    // TODO: combine camera_x/y into one camera_pos tuple
-    // Also, this should very much come with dimensions (I think)
-    // maybe move into Output?
-    pub camera_x: i32,
-    pub camera_y: i32,
+    pub camera_pos: Position,
 }
 
 #[derive(Debug)]

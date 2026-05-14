@@ -11,6 +11,7 @@ use crate::river::{
 };
 use crate::wm::desktop::Desktop;
 use crate::wm::task::Task;
+use crate::wm::utils::Position;
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use wayland_backend::client::ObjectId;
@@ -76,18 +77,16 @@ impl Seat {
         windows: &mut HashMap<RiverWindowV1, Window>,
         outputs: &HashMap<ObjectId, Output>,
         wm_proxy: &RiverWindowManagerV1,
-        camera_x: &mut i32,
-        camera_y: &mut i32,
+        camera_pos: &mut Position,
     ) {
         match &self.pending_action {
             Action::None => {}
             Action::Pan => {
-                self.pointer_pan(*camera_x, *camera_y);
+                self.pointer_pan(camera_pos);
             }
             // TODO: this is clearly bad
             Action::View { x, y } => {
-                *camera_x = *x;
-                *camera_y = *y;
+                *camera_pos = Position { x: *x, y: *y };
             }
             Action::Spawn { program, args } => {
                 let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -107,7 +106,7 @@ impl Seat {
                         .values_mut()
                         .find(|window| &window.proxy == window_proxy)
                         .expect("Focused window {window.proxy.id()} not found");
-                    self.focus_window_camera(window, outputs, camera_x, camera_y)
+                    self.focus_window_camera(window, outputs, camera_pos)
                 }
             }
             Action::Move => {
@@ -166,14 +165,12 @@ impl Seat {
             Action::MoveToNextSlide => {
                 let workspace = desktop.active_workspace_mut();
                 workspace.moveto_next_slide(windows);
-                let coord = workspace.slides[workspace.active_slide].position;
-                (*camera_x, *camera_y) = (coord.x, coord.y);
+                *camera_pos = workspace.slides[workspace.active_slide].position;
             }
             Action::MoveToPrevSlide => {
                 let workspace = desktop.active_workspace_mut();
                 workspace.moveto_prev_slide(windows);
-                let coord = workspace.slides[workspace.active_slide].position;
-                (*camera_x, *camera_y) = (coord.x, coord.y);
+                *camera_pos = workspace.slides[workspace.active_slide].position;
             }
             Action::PrevWindow => {
                 let slide = desktop.active_workspace_mut().active_slide_mut();
@@ -288,11 +285,12 @@ impl Seat {
     //     }
     // }
 
-    fn pointer_pan(&mut self, camera_x: i32, camera_y: i32) {
+    // TODO: convert seatop to use camera_pos
+    fn pointer_pan(&mut self, camera_pos: &mut Position) {
         self.proxy.op_start_pointer();
         self.op = SeatOp::Pan {
-            start_x: camera_x,
-            start_y: camera_y,
+            start_x: camera_pos.x,
+            start_y: camera_pos.y,
         };
         self.op_dx = 0;
         self.op_dy = 0;
@@ -330,8 +328,7 @@ impl Seat {
         &self,
         window: &Window,
         outputs: &HashMap<ObjectId, Output>,
-        camera_x: &mut i32,
-        camera_y: &mut i32,
+        camera_pos: &mut Position,
     ) {
         let Some((screen_cx, screen_cy)) = outputs.values().find_map(|output| {
             let (x, y) = output.position?;
@@ -340,7 +337,9 @@ impl Seat {
         }) else {
             return;
         };
-        *camera_x = window.x + window.width / 2 - screen_cx;
-        *camera_y = window.y + window.height / 2 - screen_cy
+        *camera_pos = Position {
+            x: window.x + window.width / 2 - screen_cx,
+            y: window.y + window.height / 2 - screen_cy,
+        };
     }
 }
