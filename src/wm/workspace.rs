@@ -43,10 +43,11 @@ impl Workspace {
     }
 
     pub fn rearrange(&mut self) {
+        let inner_gaps = -30;
         for (index, slide) in self.slides.iter_mut().enumerate() {
             slide.position = (
                 self.coord.0,
-                self.coord.1 + (index as i32) * self.dimensions.1,
+                self.coord.1 + (index as i32) * (self.dimensions.1 + inner_gaps),
             );
             slide.rearrange();
         }

@@ -43,12 +43,8 @@ impl Slide {
     }
 
     pub fn attach_window(&mut self, window_id: RiverWindowV1) {
-        if !self.windows.contains(&window_id) {
-            self.windows.push(window_id);
-            self.rearrange_required = true;
-        }
-        // TODO: This is not sustainable....
-        self.active_window = self.windows.len() - 1;
+        self.windows.insert(self.active_window, window_id);
+        self.rearrange();
     }
 
     // TODO: add config to loop?

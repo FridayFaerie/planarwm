@@ -45,7 +45,7 @@ impl Task {
                             window_id: window_id.clone(),
                             diff_pos,
                             timer: timer.clone(),
-                            duration: Duration::from_secs_f32(0.7),
+                            duration: Duration::from_secs_f32(0.4),
                         })
                         .expect("couldn't send movewindow");
                 }

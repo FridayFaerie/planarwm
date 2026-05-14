@@ -1,12 +1,12 @@
 use std::sync::mpsc::Sender;
 
-use crate::wm::slide::Slide;
-use crate::wm::task::Task;
-use crate::wm::workspace::Workspace;
+use crate::Window;
 use crate::wm::HashMap;
 use crate::wm::RiverWindowV1;
 use crate::wm::WindowLocation;
-use crate::Window;
+use crate::wm::slide::Slide;
+use crate::wm::task::Task;
+use crate::wm::workspace::Workspace;
 
 #[derive(Debug)]
 pub struct Desktop {
@@ -49,9 +49,9 @@ impl Desktop {
         if ws.slides.is_empty() {
             ws.slides.push(Slide::new(0, ws.dimensions, queue_tx));
             ws.active_slide = 0;
+            ws.child_rearrange_required = true;
+            ws.rearrange();
         }
-        ws.child_rearrange_required = true;
-        ws.rearrange();
 
         let slide = &mut ws.slides[ws.active_slide];
         slide.attach_window(window_id.clone());
