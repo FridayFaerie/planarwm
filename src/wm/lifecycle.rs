@@ -348,6 +348,7 @@ impl WindowManager {
 
         for seat in self.seats.values_mut() {
             if let Some(window_proxy) = seat.interacted.take() {
+                // TODO: this is unsafe!
                 let window = windows.get_mut(&window_proxy).unwrap();
                 window.node.place_top();
                 seat.focus_window(&window_proxy);

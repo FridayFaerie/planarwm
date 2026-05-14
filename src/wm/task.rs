@@ -6,10 +6,8 @@ use std::time::{Duration, Instant};
 
 impl Task {
     pub fn step(&mut self, wm: &mut WindowManager, phase: Phase, queue_tx: Sender<Task>) -> bool {
-        // if cfg!(debug_assertions) {
-        //     println!("------");
-        //     println!("performing {:?}", self);
-        // }
+        println!("------");
+        println!("performing {:?}", self);
         match self {
             Task::CloseWindow { window_id } => {
                 if phase == Phase::Manage {
@@ -47,7 +45,9 @@ impl Task {
                 dim,
                 timer,
             } => {
-                let window = wm.windows.get_mut(window_id).expect("window not found!!");
+                // let window = wm.windows.get_mut(window_id).expect("window not found!!");
+                // TODO: This is unsafe!
+                let window = wm.windows.get_mut(window_id).unwrap();
                 let diff_pos = *pos - window.current_position;
                 window.current_position = *pos;
                 if (diff_pos != Position { x: 0, y: 0 }) {
@@ -56,19 +56,21 @@ impl Task {
                             window_id: window_id.clone(),
                             diff_pos,
                             timer: *timer,
-                            duration: Duration::from_millis(300),
+                            duration: Duration::from_millis(200),
                         })
                         .expect("couldn't send movewindow");
                 }
                 // TODO: add animations
-                queue_tx
-                    .send(Task::ResizeWindow {
-                        window_id: window_id.clone(),
-                        dim: *dim,
-                        timer: *timer,
-                        duration: Duration::from_secs(0),
-                    })
-                    .expect("couldn't send resizewindow");
+                if dim.width != window.width || dim.height != window.height {
+                    queue_tx
+                        .send(Task::ResizeWindow {
+                            window_id: window_id.clone(),
+                            dim: *dim,
+                            timer: *timer,
+                            duration: Duration::from_secs(0),
+                        })
+                        .expect("couldn't send resizewindow");
+                }
                 true
             }
             // animation to move window by diff_pos

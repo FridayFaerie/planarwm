@@ -186,6 +186,9 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
                 max_height: _,
             } => {}
             Event::Dimensions { width, height } => {
+                if window.width == width && window.height == height {
+                    return;
+                }
                 window.width = width;
                 window.height = height;
                 // TODO: remove this if not needed?
