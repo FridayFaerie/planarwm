@@ -378,13 +378,11 @@ impl WindowManager {
                             if slide.slide_type != SlideType::Floating {
                                 self.queue_tx
                                     .send(Task::SetCamera {
-                                        pos: Position {
-                                            x: slide.position.x,
-                                            y: slide.position.y,
-                                        },
+                                        pos: slide.position,
                                         timer: Instant::now(),
                                     })
                                     .expect("can't send movecamera");
+                                wm_proxy.manage_dirty();
                             }
                             slide.active_window = slide
                                 .windows

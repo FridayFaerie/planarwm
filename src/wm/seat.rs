@@ -171,12 +171,22 @@ impl Seat {
             Action::MoveToNextSlide => {
                 let workspace = desktop.active_workspace_mut();
                 workspace.moveto_next_slide(windows);
-                *camera_pos = workspace.slides[workspace.active_slide].position;
+                self.queue_tx
+                    .send(Task::SetCamera {
+                        pos: workspace.slides[workspace.active_slide].position,
+                        timer: Instant::now(),
+                    })
+                    .expect("couldn't send setcamera");
             }
             Action::MoveToPrevSlide => {
                 let workspace = desktop.active_workspace_mut();
                 workspace.moveto_prev_slide(windows);
-                *camera_pos = workspace.slides[workspace.active_slide].position;
+                self.queue_tx
+                    .send(Task::SetCamera {
+                        pos: workspace.slides[workspace.active_slide].position,
+                        timer: Instant::now(),
+                    })
+                    .expect("couldn't send setcamera");
             }
             Action::PrevWindow => {
                 let slide = desktop.active_workspace_mut().active_slide_mut();
