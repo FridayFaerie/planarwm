@@ -87,8 +87,10 @@ impl Task {
 
                     if elapsed > *duration {
                         window.original_position += *diff_pos;
-                        if let Some(mut render_position) = window.render_position {
-                            render_position += diff_pos;
+                        if let Some(render_position) = window.render_position.as_mut() {
+                            *render_position += diff_pos;
+                        } else {
+                            window.render_position = Some(window.original_position);
                         }
                         return true;
                     }
@@ -181,8 +183,10 @@ impl Task {
 
                 if elapsed > *duration {
                     wm.camera_pos += *diff_pos;
-                    if let Some(mut render_position) = wm.render_camera_pos {
-                        render_position += diff_pos;
+                    if let Some(render_position) = wm.render_camera_pos.as_mut() {
+                        *render_position += diff_pos;
+                    } else {
+                        wm.render_camera_pos = Some(wm.camera_pos);
                     }
                     return true;
                 }
