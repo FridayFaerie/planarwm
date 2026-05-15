@@ -10,7 +10,7 @@ use crate::wm::utils::Position;
 #[derive(Debug)]
 pub struct Workspace {
     pub id: String,
-    pub coord: (i32, i32),
+    pub coord: Position,
     // TODO: remove dimensions, workspace shouldn't have dimensions - need to have a "center"
     // position instead?
     pub dimensions: (i32, i32),
@@ -19,6 +19,7 @@ pub struct Workspace {
     pub child_rearrange_required: bool,
     pub focus_active_requested: bool,
     pub new_slide_id: u16,
+    pub inner_gaps: i32,
 
     queue_tx: Sender<Task>,
 }
@@ -27,13 +28,14 @@ impl Workspace {
     pub fn new(id: &str, queue_tx: Sender<Task>) -> Self {
         Self {
             id: id.to_owned(),
-            coord: (0, 0),
+            coord: Position { x: 0, y: 0 },
             dimensions: (0, 0),
             slides: vec![Slide::new(0, (0, 0), queue_tx.clone())],
             active_slide: 0,
             child_rearrange_required: true,
             focus_active_requested: false,
             new_slide_id: 0,
+            inner_gaps: 10,
             queue_tx,
         }
     }
@@ -44,12 +46,14 @@ impl Workspace {
     }
 
     pub fn rearrange(&mut self) {
-        let inner_gaps = -30;
-        for (index, slide) in self.slides.iter_mut().enumerate() {
+        let mut running_y = 0;
+
+        for slide in self.slides.iter_mut() {
             slide.position = Position {
-                x: self.coord.0,
-                y: self.coord.1 + (index as i32) * (self.dimensions.1 + inner_gaps),
+                x: self.coord.x,
+                y: self.coord.y + running_y,
             };
+            running_y += slide.dimensions.1 - 2 * slide.outer_gaps + self.inner_gaps;
             slide.rearrange();
         }
     }

@@ -24,6 +24,8 @@ pub struct Slide {
     pub dimensions: (i32, i32),
     pub windows: Vec<RiverWindowV1>,
     pub active_window: usize,
+    pub inner_gaps: i32,
+    pub outer_gaps: i32,
     queue_tx: Sender<Task>,
 }
 
@@ -36,6 +38,8 @@ impl Slide {
             dimensions,
             windows: Vec::new(),
             active_window: 0,
+            inner_gaps: 10,
+            outer_gaps: 20,
             queue_tx,
         }
     }
@@ -65,10 +69,14 @@ impl Slide {
 
     pub fn cycle_tiling(&mut self) {
         if self.slide_type == SlideType::VerticalScroll {
+            self.outer_gaps = 0;
+            self.inner_gaps = 0;
             self.slide_type = SlideType::Master
         } else if self.slide_type == SlideType::Master {
             self.slide_type = SlideType::Floating
         } else if self.slide_type == SlideType::Floating {
+            self.outer_gaps = 20;
+            self.inner_gaps = 10;
             self.slide_type = SlideType::VerticalScroll
         }
     }
@@ -96,17 +104,15 @@ impl Slide {
     }
 
     fn vertscroll_rearrange(&self, bounds: Rect) {
-        let outer_gaps = 20;
-        let inner_gaps = 10;
-        let window_width = bounds.width - 2 * outer_gaps;
-        let window_height = bounds.height - 2 * outer_gaps;
+        let window_width = bounds.width - 2 * self.outer_gaps;
+        let window_height = bounds.height - 2 * self.outer_gaps;
 
         let active_index = self.active_window;
 
         for index in 0..active_index {
-            let x = (bounds.x + outer_gaps)
-                + (window_width + inner_gaps) * (index as i32 - active_index as i32);
-            let y = bounds.y + outer_gaps;
+            let x = (bounds.x + self.outer_gaps)
+                + (window_width + self.inner_gaps) * (index as i32 - active_index as i32);
+            let y = bounds.y + self.outer_gaps;
             self.queue_tx
                 .send(Task::SetWindowGeometry {
                     window_id: self.windows[index].clone(),
@@ -121,9 +127,9 @@ impl Slide {
         }
 
         for index in active_index..self.windows.len() {
-            let x = (bounds.x + outer_gaps)
-                + (window_width + inner_gaps) * (index as i32 - active_index as i32);
-            let y = bounds.y + outer_gaps;
+            let x = (bounds.x + self.outer_gaps)
+                + (window_width + self.inner_gaps) * (index as i32 - active_index as i32);
+            let y = bounds.y + self.outer_gaps;
             self.queue_tx
                 .send(Task::SetWindowGeometry {
                     window_id: self.windows[index].clone(),
