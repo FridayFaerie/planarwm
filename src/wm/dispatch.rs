@@ -15,6 +15,7 @@ use crate::river::{
 };
 use crate::wm::LibinputDevice;
 use crate::wm::task::Task;
+use crate::wm::utils::Position;
 use wayland_backend::client::ObjectId;
 use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, protocol::wl_registry};
 
@@ -334,7 +335,7 @@ impl Dispatch<RiverSeatV1, ()> for AppData {
             Event::ShellSurfaceInteraction {
                 shell_surface: _shell_surface,
             } => {}
-            Event::OpDelta { dx, dy } => (seat.op_dx, seat.op_dy) = (dx, dy),
+            Event::OpDelta { dx, dy } => seat.op_diff = Position { x: dx, y: dy },
             Event::OpRelease => seat.op_release = true,
             Event::PointerPosition { x: _, y: _ } => {}
         }

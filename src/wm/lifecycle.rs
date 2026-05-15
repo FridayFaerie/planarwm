@@ -107,9 +107,9 @@ impl WindowManager {
         for seat in self.seats.values_mut() {
             match &seat.op {
                 SeatOp::None => {}
-                SeatOp::Pan { start_x, start_y } => {
+                SeatOp::Pan { start_camera_pos} => {
                     // TODO: why isn't this auto-formatting?
-                    self.camera_pos = Position { x : start_x - seat.op_dx * 2, y : start_y - seat.op_dy * 2 };
+                    self.camera_pos =  *start_camera_pos - seat.op_diff * 2.0;
                 }
                 SeatOp::Move {
                     // window_proxy,

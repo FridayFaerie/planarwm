@@ -33,8 +33,7 @@ impl Seat {
             pointer_bindings: HashMap::new(),
             pending_action: Action::None,
             op: SeatOp::None,
-            op_dx: 0,
-            op_dy: 0,
+            op_diff: Position { x: 0, y: 0 },
             op_release: false,
             layer: None,
             layer_focus: LayerFocus::None,
@@ -230,16 +229,16 @@ impl Seat {
             } => {
                 let (mut width, mut height) = (*start_width, *start_height);
                 if edges.contains(Edges::Left) {
-                    width -= self.op_dx;
+                    width -= self.op_diff.x;
                 }
                 if edges.contains(Edges::Right) {
-                    width += self.op_dx;
+                    width += self.op_diff.x;
                 }
                 if edges.contains(Edges::Top) {
-                    height -= self.op_dy;
+                    height -= self.op_diff.y;
                 }
                 if edges.contains(Edges::Bottom) {
-                    height += self.op_dy;
+                    height += self.op_diff.y;
                 }
                 window_proxy.propose_dimensions(width, height);
             }
@@ -291,11 +290,9 @@ impl Seat {
     fn pointer_pan(&mut self, camera_pos: &mut Position) {
         self.proxy.op_start_pointer();
         self.op = SeatOp::Pan {
-            start_x: camera_pos.x,
-            start_y: camera_pos.y,
+            start_camera_pos: *camera_pos,
         };
-        self.op_dx = 0;
-        self.op_dy = 0;
+        self.op_diff = Position { x: 0, y: 0 };
     }
 
     pub fn pointer_move(&mut self, window: &Window) {
@@ -306,8 +303,7 @@ impl Seat {
             start_x: window.x,
             start_y: window.y,
         };
-        self.op_dx = 0;
-        self.op_dy = 0;
+        self.op_diff = Position { x: 0, y: 0 };
     }
 
     pub fn pointer_resize(&mut self, window: &Window, edges: Edges) {
@@ -322,8 +318,7 @@ impl Seat {
             start_height: window.height,
             edges,
         };
-        self.op_dx = 0;
-        self.op_dy = 0;
+        self.op_diff = Position { x: 0, y: 0 };
     }
 
     fn focus_window_camera(

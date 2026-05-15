@@ -43,8 +43,7 @@ pub enum LayerFocus {
 pub enum SeatOp {
     None,
     Pan {
-        start_x: i32,
-        start_y: i32,
+        start_camera_pos: Position,
     },
     Move {
         window_proxy: RiverWindowV1,
@@ -128,8 +127,7 @@ pub struct Seat {
     pub pointer_bindings: HashMap<ObjectId, PointerBinding>,
     pub pending_action: Action,
     pub op: SeatOp,
-    pub op_dx: i32,
-    pub op_dy: i32,
+    pub op_diff: Position,
     pub op_release: bool,
     pub layer: Option<RiverLayerShellSeatV1>,
     pub layer_focus: LayerFocus,
