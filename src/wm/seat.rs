@@ -147,6 +147,8 @@ impl Seat {
                 let slide = workspace.active_slide_mut();
                 if !slide.windows.is_empty() {
                     self.focus_window(&slide.windows[slide.active_window]);
+                } else {
+                    self.proxy.clear_focus();
                 }
             }
             Action::NextSlide => {

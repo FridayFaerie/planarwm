@@ -41,8 +41,8 @@ impl Window {
             );
         } else {
             self.node.set_position(
-                self.current_position.x - camera_pos.x,
-                self.current_position.y - camera_pos.y,
+                self.original_position.x - camera_pos.x,
+                self.original_position.y - camera_pos.y,
             );
         }
     }

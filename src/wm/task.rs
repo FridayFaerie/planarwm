@@ -6,8 +6,8 @@ use std::time::{Duration, Instant};
 
 impl Task {
     pub fn step(&mut self, wm: &mut WindowManager, phase: Phase, queue_tx: Sender<Task>) -> bool {
-        println!("------");
-        println!("performing {:?}", self);
+        // println!("------");
+        // println!("performing {:?}", self);
         match self {
             Task::CloseWindow { window_id } => {
                 if phase == Phase::Manage {
