@@ -14,6 +14,7 @@ use crate::wm::task::Task;
 use crate::wm::utils::Position;
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
+use std::time::Instant;
 use wayland_backend::client::ObjectId;
 use wayland_client::QueueHandle;
 
@@ -139,10 +140,12 @@ impl Seat {
                 let workspace = desktop.active_workspace_mut();
                 workspace.prev_slide();
                 let position = workspace.slides[workspace.active_slide].position;
-                // TODO: replace coord with Position
                 self.queue_tx
-                    .send(Task::MoveCamera { position })
-                    .expect("couldn't send prevslide");
+                    .send(Task::SetCamera {
+                        pos: position,
+                        timer: Instant::now(),
+                    })
+                    .expect("couldn't send prevslide's setcamera");
                 let slide = workspace.active_slide_mut();
                 if !slide.windows.is_empty() {
                     self.focus_window(&slide.windows[slide.active_window]);
@@ -154,10 +157,12 @@ impl Seat {
                 let workspace = desktop.active_workspace_mut();
                 workspace.next_slide();
                 let position = workspace.slides[workspace.active_slide].position;
-                // TODO: replace coord with Position
                 self.queue_tx
-                    .send(Task::MoveCamera { position })
-                    .expect("couldn't send nextslide");
+                    .send(Task::SetCamera {
+                        pos: position,
+                        timer: Instant::now(),
+                    })
+                    .expect("couldn't send prevslide's setcamera");
                 let slide = workspace.active_slide_mut();
                 if !slide.windows.is_empty() {
                     self.focus_window(&slide.windows[slide.active_window]);

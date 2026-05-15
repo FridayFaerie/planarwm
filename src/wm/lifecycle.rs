@@ -14,6 +14,7 @@ use crate::wm::task::{Phase, Task};
 use crate::wm::utils::Position;
 use std::collections::HashMap;
 use std::sync::mpsc;
+use std::time::Instant;
 use wayland_client::QueueHandle;
 
 impl WindowManager {
@@ -28,6 +29,8 @@ impl WindowManager {
             queue_tx,
             queue_rx,
             camera_pos: Position { x: 0, y: 0 },
+            render_camera_pos: None,
+            target_camera_pos: Position { x: 0, y: 0 },
         }
     }
     pub fn tick_tasks(&mut self, phase: Phase) -> usize {
@@ -110,6 +113,7 @@ impl WindowManager {
                 SeatOp::Pan { start_camera_pos} => {
                     // TODO: why isn't this auto-formatting?
                     self.camera_pos =  *start_camera_pos - seat.op_diff * 2.0;
+                    self.target_camera_pos = self.camera_pos;
                 }
                 SeatOp::Move {
                     // window_proxy,
@@ -171,12 +175,20 @@ impl WindowManager {
 
     pub fn set_window_node_positions(&mut self) {
         // TODO: is there a way to not do this so frequently?
-        // TODO: is there a better way to do this?
+
+        // TODO: is there a better way to do this? (what on earth is this logic)
+        let camera_pos = self.render_camera_pos.take().unwrap_or(self.camera_pos);
+
         for window in self.windows.values_mut() {
             if let Some(render_position) = window.render_position.take() {
                 window.node.set_position(
-                    render_position.x - self.camera_pos.x,
-                    render_position.y - self.camera_pos.y,
+                    render_position.x - camera_pos.x,
+                    render_position.y - camera_pos.y,
+                );
+            } else if camera_pos != self.camera_pos {
+                window.node.set_position(
+                    window.original_position.x - camera_pos.x,
+                    window.original_position.y - camera_pos.y,
                 );
             }
         }
@@ -348,38 +360,39 @@ impl WindowManager {
 
         for seat in self.seats.values_mut() {
             if let Some(window_proxy) = seat.interacted.take() {
-                // TODO: this is unsafe!
-                let window = windows.get_mut(&window_proxy).unwrap();
-                window.node.place_top();
-                seat.focus_window(&window_proxy);
+                if let Some(window) = windows.get_mut(&window_proxy) {
+                    window.node.place_top();
+                    seat.focus_window(&window_proxy);
 
-                // TODO: should probably fix this code, this just seems goofy
-                if let Some(location) = &window.location {
-                    desktop.active_workspace = location.workspace_id.clone();
-                    let workspace = desktop.active_workspace_mut();
-                    workspace.active_slide = workspace
-                        .slides
-                        .iter()
-                        .position(|s| s.id == location.slide_id)
-                        .expect("oops can't find slide");
-
-                    if let Some(slide) = workspace.slides.get_mut(workspace.active_slide) {
-                        if slide.slide_type != SlideType::Floating {
-                            self.queue_tx
-                                .send(Task::MoveCamera {
-                                    position: Position {
-                                        x: slide.position.x,
-                                        y: slide.position.y,
-                                    },
-                                })
-                                .expect("can't send movecamera");
-                        }
-                        slide.active_window = slide
-                            .windows
+                    // TODO: should probably fix this code, this just seems goofy
+                    if let Some(location) = &window.location {
+                        desktop.active_workspace = location.workspace_id.clone();
+                        let workspace = desktop.active_workspace_mut();
+                        workspace.active_slide = workspace
+                            .slides
                             .iter()
-                            .position(|w| w == &window_proxy)
-                            .expect("can't find active window");
-                        slide.rearrange();
+                            .position(|s| s.id == location.slide_id)
+                            .expect("oops can't find slide");
+
+                        if let Some(slide) = workspace.slides.get_mut(workspace.active_slide) {
+                            if slide.slide_type != SlideType::Floating {
+                                self.queue_tx
+                                    .send(Task::SetCamera {
+                                        pos: Position {
+                                            x: slide.position.x,
+                                            y: slide.position.y,
+                                        },
+                                        timer: Instant::now(),
+                                    })
+                                    .expect("can't send movecamera");
+                            }
+                            slide.active_window = slide
+                                .windows
+                                .iter()
+                                .position(|w| w == &window_proxy)
+                                .expect("can't find active window");
+                            slide.rearrange();
+                        }
                     }
                 }
             }

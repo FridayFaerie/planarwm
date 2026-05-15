@@ -21,7 +21,7 @@ impl Window {
             // TODO: maybe not default to 0?
             original_position: Position { x: 0, y: 0 },
             render_position: None,
-            current_position: Position { x: 0, y: 0 },
+            target_position: Position { x: 0, y: 0 },
 
             new: true,
             maximized: false,
@@ -33,6 +33,7 @@ impl Window {
         }
     }
 
+    // TODO: remove?
     pub fn set_node_position(&mut self, camera_pos: Position) {
         if let Some(render_position) = self.render_position {
             self.node.set_position(

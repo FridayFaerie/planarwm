@@ -45,31 +45,33 @@ impl Task {
                 dim,
                 timer,
             } => {
-                // let window = wm.windows.get_mut(window_id).expect("window not found!!");
-                // TODO: This is unsafe!
-                let window = wm.windows.get_mut(window_id).unwrap();
-                let diff_pos = *pos - window.current_position;
-                window.current_position = *pos;
-                if (diff_pos != Position { x: 0, y: 0 }) {
-                    queue_tx
-                        .send(Task::MoveWindow {
-                            window_id: window_id.clone(),
-                            diff_pos,
-                            timer: *timer,
-                            duration: Duration::from_millis(200),
-                        })
-                        .expect("couldn't send movewindow");
-                }
-                // TODO: add animations
-                if dim.width != window.width || dim.height != window.height {
-                    queue_tx
-                        .send(Task::ResizeWindow {
-                            window_id: window_id.clone(),
-                            dim: *dim,
-                            timer: *timer,
-                            duration: Duration::from_secs(0),
-                        })
-                        .expect("couldn't send resizewindow");
+                // TODO: SetWindowGeometry is sometimes called with a window that doesn't exist in
+                // wm.windows - check what's causing that, and if I can ignore it like I am doing
+                // right now
+                if let Some(window) = wm.windows.get_mut(window_id) {
+                    let diff_pos = *pos - window.target_position;
+                    window.target_position = *pos;
+                    if (diff_pos != Position { x: 0, y: 0 }) {
+                        queue_tx
+                            .send(Task::MoveWindow {
+                                window_id: window_id.clone(),
+                                diff_pos,
+                                timer: *timer,
+                                duration: Duration::from_millis(200),
+                            })
+                            .expect("couldn't send movewindow");
+                    }
+                    // TODO: add animations
+                    if dim.width != window.width || dim.height != window.height {
+                        queue_tx
+                            .send(Task::ResizeWindow {
+                                window_id: window_id.clone(),
+                                dim: *dim,
+                                timer: *timer,
+                                duration: Duration::from_secs(0),
+                            })
+                            .expect("couldn't send resizewindow");
+                    }
                 }
                 true
             }
@@ -85,11 +87,9 @@ impl Task {
 
                     if elapsed > *duration {
                         window.original_position += *diff_pos;
-                        // window.set_node_position(wm.camera_x, wm.camera_y);
                         if let Some(mut render_position) = window.render_position {
                             render_position += diff_pos;
                         }
-                        window.set_node_position(wm.camera_pos);
                         return true;
                     }
 
@@ -149,13 +149,48 @@ impl Task {
                 }
                 false
             }
-            Task::MoveCamera { position } => {
-                wm.camera_pos = *position;
-
-                for window in wm.windows.values_mut() {
-                    window.set_node_position(*position);
+            Task::SetCamera { pos, timer } => {
+                let diff_pos = *pos - wm.target_camera_pos;
+                wm.target_camera_pos = *pos;
+                if (diff_pos != Position { x: 0, y: 0 }) {
+                    queue_tx
+                        .send(Task::MoveCamera {
+                            diff_pos,
+                            timer: *timer,
+                            duration: Duration::from_millis(200),
+                        })
+                        .expect("couldn't send movewindow");
                 }
                 true
+            }
+            Task::MoveCamera {
+                diff_pos,
+                timer,
+                duration,
+            } => {
+                let elapsed = timer.elapsed();
+
+                if elapsed > *duration {
+                    wm.camera_pos += *diff_pos;
+                    if let Some(mut render_position) = wm.render_camera_pos {
+                        render_position += diff_pos;
+                    }
+                    return true;
+                }
+
+                let t = elapsed.as_millis() as f32 / duration.as_millis() as f32;
+                // let smooth_t = t;
+                let smooth_t = t * t * (3.0 - 2.0 * t);
+                let partial_diff_pos = *diff_pos * smooth_t;
+
+                if let Some(mut render_position) = wm.render_camera_pos {
+                    render_position += partial_diff_pos;
+                    wm.render_camera_pos = Some(render_position);
+                } else {
+                    wm.render_camera_pos = Some(wm.camera_pos + partial_diff_pos);
+                }
+
+                false
             } // TODO: maybe remove this?
               // Task::FocusActive {} => {
               //     let slide = wm.desktop.active_workspace_mut().active_slide_mut();
@@ -205,8 +240,14 @@ pub enum Task {
     MaximizeWindow {
         window_id: RiverWindowV1,
     },
+    SetCamera {
+        pos: Position,
+        timer: Instant,
+    },
     MoveCamera {
-        position: Position,
+        diff_pos: Position,
+        timer: Instant,
+        duration: Duration,
     },
     // FocusActive {},
 }

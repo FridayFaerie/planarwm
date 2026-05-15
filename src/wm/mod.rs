@@ -69,7 +69,10 @@ pub struct WindowManager {
     pub libinput_devices: HashMap<ObjectId, LibinputDevice>,
     queue_rx: Receiver<Task>,
     pub queue_tx: Sender<Task>,
+    // TODO: camera_pos should probably belong in output
     pub camera_pos: Position,
+    pub render_camera_pos: Option<Position>,
+    pub target_camera_pos: Position,
 }
 
 #[derive(Debug)]
@@ -86,7 +89,7 @@ pub struct Window {
 
     pub original_position: Position,
     pub render_position: Option<Position>,
-    pub current_position: Position,
+    pub target_position: Position,
 
     pub new: bool,
     pub closed: bool,
