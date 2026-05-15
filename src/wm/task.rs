@@ -133,6 +133,15 @@ impl Task {
                 {
                     if window.maximized {
                         // TODO: write this code
+                        if let Some(window) = wm.windows.get_mut(window_id)
+                            && let Some(loc) = &window.location
+                            && let Some(workspace) =
+                                wm.desktop.workspaces.get_mut(&loc.workspace_id)
+                            && let Some(slide) =
+                                workspace.slides.iter_mut().find(|s| s.id == loc.slide_id)
+                        {
+                            slide.rearrange();
+                        }
                     } else {
                         if let Some((width, height)) =
                             wm.outputs.values().find_map(|output| output.dimensions)

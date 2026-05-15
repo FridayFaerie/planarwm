@@ -222,20 +222,22 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
                     .expect("Invalid edges for resize: {edges}");
             }
             Event::ShowWindowMenuRequested { x: _, y: _ } => {}
-            Event::MaximizeRequested => {
-                if let Err(err) = state.wm.queue_tx.send(Task::MaximizeWindow {
-                    window_id: window.proxy.clone(),
-                }) {
-                    eprintln!("failed to send maximize task: {err}");
-                }
-            }
-            Event::UnmaximizeRequested => {
-                if let Err(err) = state.wm.queue_tx.send(Task::MaximizeWindow {
-                    window_id: window.proxy.clone(),
-                }) {
-                    eprintln!("failed to send unmaximize task: {err}");
-                }
-            }
+            Event::MaximizeRequested => {}
+            // state
+            //     .wm
+            //     .queue_tx
+            //     .send(Task::MaximizeWindow {
+            //         window_id: window.proxy.clone(),
+            //     })
+            //     .expect("couldn't send maximizewindow"),
+            Event::UnmaximizeRequested => {}
+            // state
+            //     .wm
+            //     .queue_tx
+            //     .send(Task::MaximizeWindow {
+            //         window_id: window.proxy.clone(),
+            //     })
+            //     .expect("couldn't send maximizewindow"),
             Event::FullscreenRequested { output: _ } => {}
             Event::ExitFullscreenRequested => {}
             Event::MinimizeRequested => {}
