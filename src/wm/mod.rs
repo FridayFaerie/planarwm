@@ -80,6 +80,7 @@ pub struct Window {
     pub proxy: RiverWindowV1,
     pub node: RiverNodeV1,
     pub title: String,
+    pub app_id: String,
 
     pub location: Option<WindowLocation>,
     pub x: i32,

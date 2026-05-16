@@ -11,6 +11,8 @@ impl Window {
             proxy,
             node,
             title: "unknown".to_string(),
+            app_id: "unknown".to_string(),
+
             location: None,
             // TODO: remove the default x,y,w,h
             x: 0,

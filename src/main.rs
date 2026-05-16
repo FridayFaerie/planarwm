@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: 0BSD
 
 mod actions;
-mod app;
 mod config;
 mod process;
 mod protocol;

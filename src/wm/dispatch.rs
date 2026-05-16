@@ -211,7 +211,11 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
                     .unwrap()
                     .rearrange();
             }
-            Event::AppId { app_id: _ } => {}
+            Event::AppId { app_id } => {
+                if let Some(id) = app_id {
+                    window.app_id = id;
+                }
+            }
             Event::Title { title } => {
                 if let Some(window_title) = title {
                     window.title = window_title;
