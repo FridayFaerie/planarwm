@@ -204,16 +204,25 @@ impl Task {
                 }
 
                 false
-            } // TODO: maybe remove this?
-              // Task::FocusActive {} => {
-              //     let slide = wm.desktop.active_workspace_mut().active_slide_mut();
-              //     if !slide.windows.is_empty() {
-              //         for seat in wm.seats.values_mut() {
-              //             seat.focus_window(&slide.windows[slide.active_window]);
-              //         }
-              //     }
-              //     return true;
-              // }
+            }
+            // TODO: maybe remove this?
+            // Task::FocusActive {} => {
+            //     let slide = wm.desktop.active_workspace_mut().active_slide_mut();
+            //     if !slide.windows.is_empty() {
+            //         for seat in wm.seats.values_mut() {
+            //             seat.focus_window(&slide.windows[slide.active_window]);
+            //         }
+            //     }
+            //     return true;
+            // }
+            Task::SetDefaultLayerShellOutput {} => {
+                for output in wm.outputs.values_mut() {
+                    if let Some(layer_shell_output) = output.layer.as_mut() {
+                        layer_shell_output.set_default();
+                    }
+                }
+                true
+            }
         }
     }
 }
@@ -263,4 +272,5 @@ pub enum Task {
         duration: Duration,
     },
     // FocusActive {},
+    SetDefaultLayerShellOutput {},
 }

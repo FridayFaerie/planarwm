@@ -132,9 +132,14 @@ impl Dispatch<RiverWindowManagerV1, ()> for AppData {
                 let mut output = Output::new(id.clone());
                 if let Some(layer_shell) = &state.river_ls {
                     output.layer =
-                        Some(layer_shell.get_output(&output.proxy, qh, output.proxy.id()))
+                        Some(layer_shell.get_output(&output.proxy, qh, output.proxy.id()));
                 }
                 state.wm.outputs.insert(id.id(), output);
+                state
+                    .wm
+                    .queue_tx
+                    .send(Task::SetDefaultLayerShellOutput {})
+                    .expect("couldn't send setdefaultlayershelloutput");
             }
             Event::Seat { id } => {
                 let mut seat = Seat::new(id.clone(), state.wm.queue_tx.clone());
@@ -248,18 +253,6 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
     }
 }
 
-impl Dispatch<RiverLayerShellV1, ()> for AppData {
-    fn event(
-        _state: &mut Self,
-        _proxy: &RiverLayerShellV1,
-        _event: <RiverLayerShellV1 as Proxy>::Event,
-        _data: &(),
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-    ) {
-    }
-}
-
 impl Dispatch<RiverOutputV1, ()> for AppData {
     fn event(
         state: &mut Self,
@@ -288,27 +281,6 @@ impl Dispatch<RiverOutputV1, ()> for AppData {
                     }
                 }
             }
-        }
-    }
-}
-
-impl Dispatch<RiverLayerShellOutputV1, ObjectId> for AppData {
-    fn event(
-        _state: &mut Self,
-        _proxy: &RiverLayerShellOutputV1,
-        event: <RiverLayerShellOutputV1 as Proxy>::Event,
-        _data: &ObjectId,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-    ) {
-        use river::river_layer_shell_output_v1::Event;
-        match event {
-            Event::NonExclusiveArea {
-                x: _,
-                y: _,
-                width: _,
-                height: _,
-            } => {}
         }
     }
 }
@@ -344,6 +316,39 @@ impl Dispatch<RiverSeatV1, ()> for AppData {
     }
 }
 
+impl Dispatch<RiverLayerShellV1, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &RiverLayerShellV1,
+        _event: <RiverLayerShellV1 as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+    }
+}
+
+impl Dispatch<RiverLayerShellOutputV1, ObjectId> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &RiverLayerShellOutputV1,
+        event: <RiverLayerShellOutputV1 as Proxy>::Event,
+        _data: &ObjectId,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        use river::river_layer_shell_output_v1::Event;
+        match event {
+            Event::NonExclusiveArea {
+                x: _,
+                y: _,
+                width: _,
+                height: _,
+            } => {}
+        }
+    }
+}
+
 impl Dispatch<RiverLayerShellSeatV1, ObjectId> for AppData {
     fn event(
         state: &mut Self,
@@ -360,9 +365,15 @@ impl Dispatch<RiverLayerShellSeatV1, ObjectId> for AppData {
             .get_mut(data)
             .expect("Seat {proxy.id()} not found");
         match event {
-            Event::FocusExclusive => seat.layer_focus = LayerFocus::Exclusive,
-            Event::FocusNonExclusive => seat.layer_focus = LayerFocus::NonExclusive,
-            Event::FocusNone => seat.layer_focus = LayerFocus::None,
+            Event::FocusExclusive => {
+                seat.layer_focus = LayerFocus::Exclusive;
+            }
+            Event::FocusNonExclusive => {
+                seat.layer_focus = LayerFocus::NonExclusive;
+            }
+            Event::FocusNone => {
+                seat.layer_focus = LayerFocus::None;
+            }
         }
     }
 }
