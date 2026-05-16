@@ -1,4 +1,5 @@
 use crate::WindowManager;
+use crate::ipc::ClientId;
 use crate::wm::utils::{Dimension, Position};
 use crate::wm::{RiverWindowV1, SeatOp};
 use std::sync::mpsc::Sender;
@@ -222,6 +223,35 @@ impl Task {
             //     }
             //     return true;
             // }
+            Task::UnWatchRequest { .. } => {
+                eprintln!("TODO: implement UnWatchRequest");
+                true
+            }
+            Task::WatchRequest { .. } => {
+                // state
+                //     .ipc
+                //     .watchers
+                //     .entry(app_id.clone())
+                //     .or_default()
+                //     .insert(client_id);
+                //
+                // let geom = app.wm.geometry_for_appid(&app_id);
+                //
+                // ipc.send_reply(
+                //     client_id,
+                //     IpcResponse::Snapshot {
+                //         request_id,
+                //         app_id,
+                //         window: geom,
+                //     },
+                // );
+                eprintln!("TODO: implement WatchRequest");
+                true
+            }
+            Task::FocusWindow { .. } => {
+                eprintln!("TODO: implement FocusWindow");
+                true
+            }
             Task::SetDefaultLayerShellOutput {} => {
                 for output in wm.outputs.values_mut() {
                     if let Some(layer_shell_output) = output.layer.as_mut() {
@@ -279,5 +309,17 @@ pub enum Task {
         duration: Duration,
     },
     // FocusActive {},
+
+    // other externals
+    UnWatchRequest {
+        app_id: String,
+    },
+    WatchRequest {
+        app_id: String,
+        client_id: ClientId,
+    },
+    FocusWindow {
+        app_id: String,
+    },
     SetDefaultLayerShellOutput {},
 }
