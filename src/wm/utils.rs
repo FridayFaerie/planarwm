@@ -1,5 +1,7 @@
 use std::ops::{Add, AddAssign, Mul, Sub};
 
+use serde::Serialize;
+
 // TODO: maybe change Rect into {Position,Dimensions}
 #[derive(Debug, Clone, Copy, serde::Serialize)]
 pub struct Rect {
@@ -16,7 +18,7 @@ pub struct Dimension {
     pub height: i32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct Position {
     pub x: i32,
     pub y: i32,

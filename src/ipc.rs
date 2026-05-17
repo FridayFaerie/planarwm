@@ -1,6 +1,9 @@
 use crate::{
     AppData,
-    wm::{task::Task, utils::Rect},
+    wm::{
+        task::Task,
+        utils::{Position, Rect},
+    },
 };
 use nix::sys::eventfd::EventFd;
 use serde::{Deserialize, Serialize};
@@ -17,12 +20,13 @@ use std::{
     thread,
     time::Duration,
 };
+use wayland_backend::client::ObjectId;
 
 pub type ClientId = u64;
 
 #[derive(Debug)]
 pub struct IpcState {
-    pub watchers: HashMap<String, HashSet<ClientId>>,
+    pub watchers: HashMap<ObjectId, HashSet<ClientId>>,
 }
 
 impl IpcState {
@@ -56,11 +60,12 @@ pub enum MainRequest {
 }
 
 #[derive(Debug, Clone)]
+// TODO: maybe rename this
 pub enum MainResponse {
     Geometry {
         client_id: ClientId,
         app_id: String,
-        window: Option<IpcRect>,
+        center: Position,
     },
     Ok {
         client_id: ClientId,
@@ -71,25 +76,6 @@ pub enum MainResponse {
         request_id: u64,
         message: String,
     },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRect {
-    pub x: i32,
-    pub y: i32,
-    pub width: i32,
-    pub height: i32,
-}
-
-impl From<&Rect> for IpcRect {
-    fn from(r: &Rect) -> Self {
-        Self {
-            x: r.x,
-            y: r.y,
-            width: r.width,
-            height: r.height,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -103,17 +89,9 @@ enum SocketRequest {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 enum SocketResponse {
-    Geometry {
-        app_id: String,
-        window: Option<IpcRect>,
-    },
-    Ok {
-        request_id: u64,
-    },
-    Error {
-        request_id: u64,
-        message: String,
-    },
+    Geometry { app_id: String, center: Position },
+    Ok { request_id: u64 },
+    Error { request_id: u64, message: String },
 }
 
 struct ClientState {
@@ -280,8 +258,8 @@ pub fn drain_main_events(
                     MainResponse::Geometry {
                         client_id,
                         app_id,
-                        window,
-                    } => (client_id, SocketResponse::Geometry { app_id, window }),
+                        center,
+                    } => (client_id, SocketResponse::Geometry { app_id, center }),
                     MainResponse::Ok {
                         client_id: _client_id,
                         request_id,

@@ -134,6 +134,10 @@ impl Task {
             } => {
                 if phase == Phase::Manage && timer.elapsed() > *duration {
                     if let Some(window) = wm.windows.get_mut(window_id) {
+                        println!(
+                            "resizing window {}, with app id {}",
+                            window.title, window.app_id
+                        );
                         let width = dim.width;
                         let height = dim.height;
                         (window.width, window.height) = (width, height);

@@ -49,6 +49,22 @@ impl Window {
             );
         }
     }
+
+    pub fn get_vector_from(&mut self, origin: Position) -> Position {
+        let pos;
+        if let Some(position) = self.render_position {
+            pos = position;
+        } else {
+            pos = self.original_position;
+        }
+
+        return pos
+            + Position {
+                x: self.width / 2,
+                y: self.height / 2,
+            }
+            - origin;
+    }
 }
 
 #[derive(Debug, Clone)]

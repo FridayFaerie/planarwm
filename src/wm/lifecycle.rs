@@ -2,6 +2,7 @@ use super::{SeatOp, WindowManager};
 use crate::AppData;
 use crate::actions::{Action, parse_action, parse_keysym, parse_modifiers};
 use crate::config::{Config, WindowConfig};
+use crate::ipc::{IpcState, MainResponse};
 use crate::protocol::river::wayland_client::Proxy;
 use crate::river::{
     river_seat_v1::Modifiers, river_window_manager_v1::RiverWindowManagerV1,
@@ -12,13 +13,13 @@ use crate::wm::slide::SlideType;
 use crate::wm::task::{Phase, Task};
 use crate::wm::utils::Position;
 use std::collections::HashMap;
-use std::sync::mpsc;
+use std::sync::mpsc::{self, Sender};
 use std::time::Instant;
 use wayland_backend::client::ObjectId;
 use wayland_client::QueueHandle;
 
 impl WindowManager {
-    pub fn new() -> WindowManager {
+    pub fn new(ipc_tx: Sender<MainResponse>) -> WindowManager {
         let (queue_tx, queue_rx) = mpsc::channel();
         WindowManager {
             desktop: Desktop::new(queue_tx.clone()),
@@ -31,6 +32,9 @@ impl WindowManager {
             camera_pos: Position { x: 0, y: 0 },
             render_camera_pos: None,
             target_camera_pos: Position { x: 0, y: 0 },
+
+            ipc: IpcState::new(),
+            ipc_tx,
         }
     }
     pub fn tick_tasks(&mut self, phase: Phase) -> usize {
@@ -192,17 +196,39 @@ impl WindowManager {
                 (self.camera_pos, false)
             };
 
-        for window in self.windows.values_mut() {
+        for (id, window) in self.windows.iter_mut() {
             if let Some(render_position) = window.render_position.take() {
                 window.node.set_position(
                     render_position.x - camera_pos.x,
                     render_position.y - camera_pos.y,
                 );
+                if let Some(client_ids) = self.ipc.watchers.get(id) {
+                    for client_id in client_ids {
+                        self.ipc_tx
+                            .send(MainResponse::Geometry {
+                                client_id: *client_id,
+                                app_id: window.app_id.clone(),
+                                center: window.get_vector_from(self.camera_pos),
+                            })
+                            .expect("couldn't send ipc response");
+                    }
+                }
             } else if render_camera_pos_existed {
                 window.node.set_position(
                     window.original_position.x - camera_pos.x,
                     window.original_position.y - camera_pos.y,
                 );
+                if let Some(client_ids) = self.ipc.watchers.get(id) {
+                    for client_id in client_ids {
+                        self.ipc_tx
+                            .send(MainResponse::Geometry {
+                                client_id: *client_id,
+                                app_id: window.app_id.clone(),
+                                center: window.get_vector_from(self.camera_pos),
+                            })
+                            .expect("couldn't send ipc response");
+                    }
+                }
             }
         }
     }

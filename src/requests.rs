@@ -1,5 +1,14 @@
-use crate::{AppData, ipc, wm::task::Task};
-use std::fmt::Display;
+use wayland_backend::client::ObjectId;
+
+use crate::{
+    AppData, ipc,
+    wm::{
+        Window,
+        task::Task,
+        utils::{Position, Rect},
+    },
+};
+use std::{collections::HashMap, fmt::Display};
 
 fn response_from_result<E: Display>(
     client_id: ipc::ClientId,
@@ -20,10 +29,10 @@ fn response_from_result<E: Display>(
 }
 
 fn remove_client_from_watchers(state: &mut AppData, client_id: ipc::ClientId) {
-    for set in state.ipc.watchers.values_mut() {
+    for set in state.wm.ipc.watchers.values_mut() {
         set.remove(&client_id);
     }
-    state.ipc.watchers.retain(|_, set| !set.is_empty());
+    state.wm.ipc.watchers.retain(|_, set| !set.is_empty());
 }
 
 pub fn drain_main_requests(
@@ -37,21 +46,42 @@ pub fn drain_main_requests(
                 request_id,
                 app_id,
             } => {
+                let found_id = find_window_id(app_id.to_lowercase(), &mut state.wm.windows);
                 println!(
                     "processing watch request {} from client {}, asking about {}!",
                     request_id, client_id, app_id
                 );
-                state
-                    .ipc
-                    .watchers
-                    .entry(app_id.clone())
-                    .or_default()
-                    .insert(client_id);
+                // 2. put it within the array watchers
+                // 3. send the geometry, along with ack w/ the actual window name(?)
+                if let Some(id) = found_id {
+                    state
+                        .wm
+                        .ipc
+                        .watchers
+                        .entry(id.clone())
+                        .or_default()
+                        .insert(client_id);
 
-                state.ipc_tx.send(ipc::MainResponse::Ok {
-                    client_id,
-                    request_id,
-                })?;
+                    state.ipc_tx.send(ipc::MainResponse::Ok {
+                        client_id,
+                        request_id,
+                    })?;
+
+                    if let Some(window) = state.wm.windows.get_mut(&id) {
+                        state.ipc_tx.send(ipc::MainResponse::Geometry {
+                            client_id,
+                            app_id: window.app_id.to_string(),
+                            center: window.get_vector_from(state.wm.camera_pos),
+                        })?;
+                    }
+                } else {
+                    println!("couldn't find the requested window {}", app_id);
+                    state.ipc_tx.send(ipc::MainResponse::Error {
+                        client_id,
+                        request_id,
+                        message: format!("couldn't find requested window {}", app_id),
+                    })?;
+                }
             }
 
             ipc::MainRequest::Unwatch {
@@ -59,11 +89,18 @@ pub fn drain_main_requests(
                 request_id,
                 app_id,
             } => {
-                if let Some(set) = state.ipc.watchers.get_mut(&app_id) {
-                    set.remove(&client_id);
-                    if set.is_empty() {
-                        state.ipc.watchers.remove(&app_id);
+                let found_id = find_window_id(app_id.to_lowercase(), &mut state.wm.windows);
+                if let Some(id) = found_id {
+                    if let Some(set) = state.wm.ipc.watchers.get_mut(&id) {
+                        set.remove(&client_id);
+                        if set.is_empty() {
+                            state.wm.ipc.watchers.remove(&id);
+                        }
+                    } else {
+                        println!("couldn't unwatch {}: not in watched list", app_id);
                     }
+                } else {
+                    println!("couldn't unwatch {}: couldn't map to a window", app_id);
                 }
 
                 state.ipc_tx.send(ipc::MainResponse::Ok {
@@ -96,4 +133,23 @@ pub fn drain_main_requests(
     }
 
     Ok(())
+}
+
+fn find_window_id(
+    requested_string: String,
+    windows: &mut HashMap<ObjectId, Window>,
+) -> Option<ObjectId> {
+    for (window_id, window) in windows.iter() {
+        let window_app_id = &window.app_id.to_lowercase();
+        let window_title = &window.title.to_lowercase();
+
+        if window_app_id.contains(&requested_string)
+            || window_title.contains(&requested_string)
+            || requested_string.contains(window_app_id)
+            || requested_string.contains(window_title)
+        {
+            return Some(window_id.clone());
+        }
+    }
+    return None;
 }

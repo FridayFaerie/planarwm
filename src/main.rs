@@ -41,7 +41,6 @@ struct AppData {
     river_lc: Option<RiverLibinputConfigV1>,
     wm: WindowManager,
 
-    ipc: IpcState,
     ipc_tx: Sender<MainResponse>,
 }
 
@@ -84,9 +83,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         river_ls: None,
         river_im: None,
         river_lc: None,
-        wm: WindowManager::new(),
+        wm: WindowManager::new(from_main_tx.clone()),
 
-        ipc: IpcState::new(),
         ipc_tx: from_main_tx,
     };
 

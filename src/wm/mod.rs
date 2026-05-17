@@ -10,6 +10,8 @@ pub mod utils;
 pub mod window;
 pub mod workspace;
 
+use crate::ipc::IpcState;
+use crate::ipc::MainResponse;
 use crate::wm::desktop::Desktop;
 use crate::wm::task::Task;
 use crate::wm::utils::Position;
@@ -73,6 +75,9 @@ pub struct WindowManager {
     pub camera_pos: Position,
     pub render_camera_pos: Option<Position>,
     pub target_camera_pos: Position,
+
+    pub ipc: IpcState,
+    ipc_tx: Sender<MainResponse>,
 }
 
 #[derive(Debug)]
