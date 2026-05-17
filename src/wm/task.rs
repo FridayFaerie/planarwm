@@ -50,6 +50,10 @@ impl Task {
                 // right now
                 if let Some(window) = wm.windows.get_mut(window_id) {
                     let diff_pos = *pos - window.target_position;
+                    // TODO: allow config?
+                    let duration = (((diff_pos.x.pow(2) + diff_pos.y.pow(2)) as f32).powf(0.25)
+                        * 3.0
+                        + 50.0) as u64;
                     window.target_position = *pos;
                     if (diff_pos != Position { x: 0, y: 0 }) {
                         queue_tx
@@ -57,7 +61,7 @@ impl Task {
                                 window_id: window_id.clone(),
                                 diff_pos,
                                 timer: *timer,
-                                duration: Duration::from_millis(200),
+                                duration: Duration::from_millis(duration),
                             })
                             .expect("couldn't send movewindow");
                     }
@@ -162,13 +166,16 @@ impl Task {
             }
             Task::SetCamera { pos, timer } => {
                 let diff_pos = *pos - wm.target_camera_pos;
+                // TODO: allow it to be configurable?
+                let duration = (((diff_pos.x.pow(2) + diff_pos.y.pow(2)) as f32).powf(0.25) * 3.0
+                    + 50.0) as u64;
                 wm.target_camera_pos = *pos;
                 if (diff_pos != Position { x: 0, y: 0 }) {
                     queue_tx
                         .send(Task::MoveCamera {
                             diff_pos,
                             timer: *timer,
-                            duration: Duration::from_millis(200),
+                            duration: Duration::from_millis(duration),
                         })
                         .expect("couldn't send movewindow");
                 }
