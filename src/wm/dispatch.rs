@@ -126,7 +126,7 @@ impl Dispatch<RiverWindowManagerV1, ()> for AppData {
             Event::SessionLocked => {}
             Event::SessionUnlocked => {}
             Event::Window { id } => {
-                state.wm.windows.insert(id.clone(), Window::new(id, qh));
+                state.wm.windows.insert(id.id(), Window::new(id, qh));
             }
             Event::Output { id } => {
                 let mut output = Output::new(id.clone());
@@ -182,7 +182,7 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
                 .wm
                 .queue_tx
                 .send(Task::CloseWindow {
-                    window_id: window.proxy.clone(),
+                    window_id: window.proxy.id(),
                 })
                 .expect("couldn't send closewindow"),
             Event::DimensionsHint {
@@ -307,9 +307,9 @@ impl Dispatch<RiverSeatV1, ()> for AppData {
         match event {
             Event::Removed => seat.removed = true,
             Event::WlSeat { name: _ } => {}
-            Event::PointerEnter { window } => seat.hovered = Some(window),
+            Event::PointerEnter { window } => seat.hovered = Some(window.id()),
             Event::PointerLeave => seat.hovered = None,
-            Event::WindowInteraction { window } => seat.interacted = Some(window),
+            Event::WindowInteraction { window } => seat.interacted = Some(window.id()),
             Event::ShellSurfaceInteraction {
                 shell_surface: _shell_surface,
             } => {}

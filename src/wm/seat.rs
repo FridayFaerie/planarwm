@@ -6,7 +6,6 @@ use crate::river::{
     river_seat_v1::{Modifiers, RiverSeatV1},
     river_window_manager_v1::RiverWindowManagerV1,
     river_window_v1::Edges,
-    river_window_v1::RiverWindowV1,
     river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
 use crate::wm::desktop::Desktop;
@@ -74,7 +73,7 @@ impl Seat {
     pub fn do_action(
         &mut self,
         desktop: &mut Desktop,
-        windows: &mut HashMap<RiverWindowV1, Window>,
+        windows: &mut HashMap<ObjectId, Window>,
         outputs: &HashMap<ObjectId, Output>,
         wm_proxy: &RiverWindowManagerV1,
         camera_pos: &mut Position,
@@ -101,29 +100,20 @@ impl Seat {
                 }
             }
             Action::CenterFocused => {
-                if let Some(window_proxy) = self.focused.as_ref() {
-                    let window = windows
-                        .values_mut()
-                        .find(|window| &window.proxy == window_proxy)
-                        .expect("Focused window {window.proxy.id()} not found");
+                if let Some(window_id) = self.focused.as_ref() {
+                    let window = windows.get(window_id).expect("focused window not found");
                     self.focus_window_camera(window, outputs, camera_pos)
                 }
             }
             Action::Move => {
-                if let (Some(window_proxy), SeatOp::None) = (self.hovered.as_ref(), &self.op) {
-                    let window = windows
-                        .values()
-                        .find(|window| &window.proxy == window_proxy)
-                        .expect("Hovered window {window.proxy.id()} not found");
+                if let (Some(window_id), SeatOp::None) = (self.hovered.as_ref(), &self.op) {
+                    let window = windows.get(window_id).expect("focused window not found");
                     self.pointer_move(window);
                 }
             }
             Action::Resize => {
-                if let (Some(window_proxy), SeatOp::None) = (self.hovered.as_ref(), &self.op) {
-                    let window = windows
-                        .values()
-                        .find(|window| &window.proxy == window_proxy)
-                        .expect("Hovered window {window.proxy.id()} not found");
+                if let (Some(window_id), SeatOp::None) = (self.hovered.as_ref(), &self.op) {
+                    let window = windows.get(window_id).expect("focused window not found");
                     self.pointer_resize(window, Edges::Bottom.union(Edges::Right));
                 }
             }
@@ -148,7 +138,7 @@ impl Seat {
                     .expect("couldn't send prevslide's setcamera");
                 let slide = workspace.active_slide_mut();
                 if !slide.windows.is_empty() {
-                    self.focus_window(&slide.windows[slide.active_window]);
+                    self.focus_window(&slide.windows[slide.active_window], windows);
                 } else {
                     self.proxy.clear_focus();
                 }
@@ -165,7 +155,7 @@ impl Seat {
                     .expect("couldn't send prevslide's setcamera");
                 let slide = workspace.active_slide_mut();
                 if !slide.windows.is_empty() {
-                    self.focus_window(&slide.windows[slide.active_window]);
+                    self.focus_window(&slide.windows[slide.active_window], windows);
                 }
             }
             Action::MoveToNextSlide => {
@@ -196,7 +186,7 @@ impl Seat {
                 // TODO: Not sure if I need to do this for all seats - if I do, I need a new
                 // FocusOnWindow task prolly
                 if !slide.windows.is_empty() {
-                    self.focus_window(&slide.windows[slide.active_window])
+                    self.focus_window(&slide.windows[slide.active_window], windows)
                 }
                 slide.rearrange();
             }
@@ -208,7 +198,7 @@ impl Seat {
                 // TODO: Not sure if I need to do this for all seats - if I do, I need a new
                 // FocusOnWindow task prolly
                 if !slide.windows.is_empty() {
-                    self.focus_window(&slide.windows[slide.active_window])
+                    self.focus_window(&slide.windows[slide.active_window], windows)
                 }
                 slide.rearrange();
             }
@@ -221,22 +211,30 @@ impl Seat {
             Action::Exit => wm_proxy.exit_session(),
         }
         self.pending_action = Action::None;
+        if self.op_release {
+            self.op_end(windows);
+            self.op_release = false;
+        } else {
+            self.op_manage(windows);
+        }
     }
 
-    pub fn op_end(&mut self) {
-        if let SeatOp::Resize { window_proxy, .. } = &self.op {
-            window_proxy.inform_resize_end();
+    pub fn op_end(&mut self, windows: &mut HashMap<ObjectId, Window>) {
+        if let SeatOp::Resize { window_id, .. } = &self.op {
+            if let Some(window) = windows.get_mut(window_id) {
+                window.proxy.inform_resize_end();
+            };
         }
         self.proxy.op_end();
         self.op = SeatOp::None;
     }
 
-    pub fn op_manage(&mut self) {
+    pub fn op_manage(&mut self, windows: &mut HashMap<ObjectId, Window>) {
         match &self.op {
             SeatOp::None | SeatOp::Move { .. } => {}
             SeatOp::Pan { .. } => {}
             SeatOp::Resize {
-                window_proxy,
+                window_id,
                 start_width,
                 start_height,
                 edges,
@@ -255,12 +253,15 @@ impl Seat {
                 if edges.contains(Edges::Bottom) {
                     height += self.op_diff.y;
                 }
-                window_proxy.propose_dimensions(width, height);
+                if let Some(window) = windows.get_mut(window_id) {
+                    window.proxy.propose_dimensions(width, height);
+                };
             }
         }
     }
 
-    pub fn focus_window(&mut self, window_id: &RiverWindowV1) {
+    // TODO: make this a Task too?
+    pub fn focus_window(&mut self, window_id: &ObjectId, windows: &mut HashMap<ObjectId, Window>) {
         match self.layer_focus {
             LayerFocus::Exclusive => {
                 self.proxy.clear_focus();
@@ -270,7 +271,9 @@ impl Seat {
             LayerFocus::NonExclusive => {}
             LayerFocus::None => {}
         }
-        self.proxy.focus_window(window_id);
+        if let Some(window) = windows.get_mut(window_id) {
+            self.proxy.focus_window(&window.proxy);
+        };
         self.focused = Some(window_id.clone());
     }
 
@@ -311,10 +314,11 @@ impl Seat {
     }
 
     pub fn pointer_move(&mut self, window: &Window) {
-        self.interacted = Some(window.proxy.clone());
+        let window_id = window.proxy.id();
+        self.interacted = Some(window_id.clone());
         self.proxy.op_start_pointer();
         self.op = SeatOp::Move {
-            window_proxy: window.proxy.clone(),
+            window_id,
             start_x: window.x,
             start_y: window.y,
         };
@@ -322,11 +326,12 @@ impl Seat {
     }
 
     pub fn pointer_resize(&mut self, window: &Window, edges: Edges) {
-        self.interacted = Some(window.proxy.clone());
+        let window_id = window.proxy.id();
+        self.interacted = Some(window_id.clone());
         self.proxy.op_start_pointer();
         window.proxy.inform_resize_start();
         self.op = SeatOp::Resize {
-            window_proxy: window.proxy.clone(),
+            window_id,
             start_x: window.x,
             start_y: window.y,
             start_width: window.width,

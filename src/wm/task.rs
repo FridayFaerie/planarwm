@@ -1,7 +1,9 @@
+use wayland_backend::client::ObjectId;
+
 use crate::WindowManager;
 use crate::ipc::ClientId;
+use crate::wm::SeatOp;
 use crate::wm::utils::{Dimension, Position};
-use crate::wm::{RiverWindowV1, SeatOp};
 use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
 
@@ -13,11 +15,15 @@ impl Task {
             Task::CloseWindow { window_id } => {
                 if phase == Phase::Manage {
                     for seat in wm.seats.values_mut() {
-                        if let SeatOp::Move { window_proxy, .. }
-                        | SeatOp::Resize { window_proxy, .. } = &seat.op
-                            && window_proxy == window_id
+                        if let SeatOp::Move {
+                            window_id: op_id, ..
+                        }
+                        | SeatOp::Resize {
+                            window_id: op_id, ..
+                        } = &seat.op
+                            && op_id == window_id
                         {
-                            seat.op_end();
+                            seat.op_end(&mut wm.windows);
                         }
                     }
                     if let Some(window) = wm.windows.get_mut(window_id)
@@ -30,12 +36,15 @@ impl Task {
                         slide.rearrange();
                         if !slide.windows.is_empty() {
                             for seat in wm.seats.values_mut() {
-                                seat.focus_window(&slide.windows[slide.active_window])
+                                seat.focus_window(
+                                    &slide.windows[slide.active_window],
+                                    &mut wm.windows,
+                                )
                             }
                         };
                     }
+                    wm.windows[window_id].proxy.close();
                     wm.windows.remove(window_id);
-                    window_id.close();
                     return true;
                 }
                 false
@@ -273,22 +282,22 @@ pub enum Phase {
 #[derive(Debug)]
 pub enum Task {
     CloseWindow {
-        window_id: RiverWindowV1,
+        window_id: ObjectId,
     },
     SetWindowGeometry {
-        window_id: RiverWindowV1,
+        window_id: ObjectId,
         pos: Position,
         dim: Dimension,
         timer: Instant,
     },
     MoveWindow {
-        window_id: RiverWindowV1,
+        window_id: ObjectId,
         diff_pos: Position,
         timer: Instant,
         duration: Duration,
     },
     ResizeWindow {
-        window_id: RiverWindowV1,
+        window_id: ObjectId,
         dim: Dimension,
         timer: Instant,
         duration: Duration,
@@ -297,7 +306,7 @@ pub enum Task {
     //     workspace: u8,
     // },
     MaximizeWindow {
-        window_id: RiverWindowV1,
+        window_id: ObjectId,
     },
     SetCamera {
         pos: Position,

@@ -7,7 +7,6 @@ use crate::river::{
     river_seat_v1::Modifiers, river_window_manager_v1::RiverWindowManagerV1,
     river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
-use crate::wm::RiverWindowV1;
 use crate::wm::desktop::Desktop;
 use crate::wm::slide::SlideType;
 use crate::wm::task::{Phase, Task};
@@ -15,6 +14,7 @@ use crate::wm::utils::Position;
 use std::collections::HashMap;
 use std::sync::mpsc;
 use std::time::Instant;
+use wayland_backend::client::ObjectId;
 use wayland_client::QueueHandle;
 
 impl WindowManager {
@@ -90,7 +90,10 @@ impl WindowManager {
                 // TODO: idt I should do this weird check
                 if !active_slide.windows.is_empty() {
                     for seat in self.seats.values_mut() {
-                        seat.focus_window(&active_slide.windows[active_slide.active_window])
+                        seat.focus_window(
+                            &active_slide.windows[active_slide.active_window],
+                            &mut self.windows,
+                        )
                     }
                 }
 
@@ -137,7 +140,7 @@ impl WindowManager {
                 }
                 // This code "saves" the position as the resize goes on
                 SeatOp::Resize {
-                    window_proxy,
+                    window_id,
                     // start_x,
                     // start_y,
                     // start_width,
@@ -147,8 +150,7 @@ impl WindowManager {
                 } => {
                     if let Some(_window) = self
                         .windows
-                        .values_mut()
-                        .find(|window| &window.proxy == window_proxy)
+                        .get(window_id)
                     {
                         // let (mut x, mut y) = (*start_x, *start_y);
                         // if edges.contains(Edges::Left) {
@@ -225,12 +227,13 @@ impl WindowManager {
             .into_iter()
             .filter(|(_, window)| {
                 if window.closed {
+                    let id = window.proxy.id();
                     for seat in self.seats.values_mut() {
-                        if let SeatOp::Move { window_proxy, .. }
-                        | SeatOp::Resize { window_proxy, .. } = &seat.op
-                            && window_proxy == &window.proxy
+                        if let SeatOp::Move { window_id, .. } | SeatOp::Resize { window_id, .. } =
+                            &seat.op
+                            && window_id == &id
                         {
-                            seat.op_end();
+                            seat.op_end(&mut self.windows);
                         }
                     }
 
@@ -239,7 +242,7 @@ impl WindowManager {
                         && let Some(slide) =
                             workspace.slides.iter_mut().find(|s| s.id == loc.slide_id)
                     {
-                        slide.windows.retain(|w| w != &window.proxy);
+                        slide.windows.retain(|w| w != &id);
                         slide.rearrange();
                     }
 
@@ -271,8 +274,9 @@ impl WindowManager {
 
     // TODO: new windows init with slide dimensions, not window dimensions
     pub fn init_new_windows(&mut self, window_config: &WindowConfig) {
+        // TODO: this was hastily fixed, fix it better
         // TODO: this seems weird, is there a better way
-        let new_window_ids: Vec<RiverWindowV1> = self
+        let new_window_ids: Vec<ObjectId> = self
             .windows
             .iter()
             .filter(|(_, w)| w.new)
@@ -291,7 +295,7 @@ impl WindowManager {
                 window.node.place_top();
                 // window.proxy.set_borders(Edges::all(), 3, 4294967295, 0, 0, 4294967295);
                 for seat in self.seats.values_mut() {
-                    seat.focus_window(&window_id)
+                    seat.focus_window(&window_id, &mut self.windows)
                 }
             }
         }
@@ -370,10 +374,10 @@ impl WindowManager {
         let camera_pos = &mut self.camera_pos;
 
         for seat in self.seats.values_mut() {
-            if let Some(window_proxy) = seat.interacted.take() {
-                if let Some(window) = windows.get_mut(&window_proxy) {
+            if let Some(window_id) = seat.interacted.take() {
+                seat.focus_window(&window_id, windows);
+                if let Some(window) = windows.get_mut(&window_id) {
                     window.node.place_top();
-                    seat.focus_window(&window_proxy);
 
                     // TODO: should probably fix this code, this just seems goofy
                     if let Some(location) = &window.location {
@@ -398,7 +402,7 @@ impl WindowManager {
                             slide.active_window = slide
                                 .windows
                                 .iter()
-                                .position(|w| w == &window_proxy)
+                                .position(|w| w == &window_id)
                                 .expect("can't find active window");
                             slide.rearrange();
                         }
@@ -407,12 +411,6 @@ impl WindowManager {
             }
 
             seat.do_action(desktop, windows, &self.outputs, wm_proxy, camera_pos);
-            if seat.op_release {
-                seat.op_end();
-                seat.op_release = false;
-            } else {
-                seat.op_manage();
-            }
         }
     }
 }

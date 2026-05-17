@@ -1,8 +1,9 @@
 use std::sync::mpsc::Sender;
 
+use wayland_backend::client::ObjectId;
+
 use crate::Window;
 use crate::wm::HashMap;
-use crate::wm::RiverWindowV1;
 use crate::wm::slide::Slide;
 use crate::wm::task::Task;
 use crate::wm::utils::Position;
@@ -62,7 +63,7 @@ impl Workspace {
         self.slides.get_mut(self.active_slide).unwrap()
     }
 
-    pub fn moveto_next_slide(&mut self, windows: &mut HashMap<RiverWindowV1, Window>) {
+    pub fn moveto_next_slide(&mut self, windows: &mut HashMap<ObjectId, Window>) {
         let active_slide = self
             .slides
             .get_mut(self.active_slide)
@@ -81,7 +82,7 @@ impl Workspace {
         }
     }
 
-    pub fn moveto_prev_slide(&mut self, windows: &mut HashMap<RiverWindowV1, Window>) {
+    pub fn moveto_prev_slide(&mut self, windows: &mut HashMap<ObjectId, Window>) {
         let active_slide = self
             .slides
             .get_mut(self.active_slide)

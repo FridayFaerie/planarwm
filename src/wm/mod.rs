@@ -46,12 +46,12 @@ pub enum SeatOp {
         start_camera_pos: Position,
     },
     Move {
-        window_proxy: RiverWindowV1,
+        window_id: ObjectId,
         start_x: i32,
         start_y: i32,
     },
     Resize {
-        window_proxy: RiverWindowV1,
+        window_id: ObjectId,
         start_x: i32,
         start_y: i32,
         start_width: i32,
@@ -63,7 +63,7 @@ pub enum SeatOp {
 #[derive(Debug)]
 pub struct WindowManager {
     pub desktop: Desktop,
-    pub windows: HashMap<RiverWindowV1, Window>,
+    pub windows: HashMap<ObjectId, Window>,
     pub outputs: HashMap<ObjectId, Output>,
     pub seats: HashMap<ObjectId, Seat>,
     pub libinput_devices: HashMap<ObjectId, LibinputDevice>,
@@ -124,9 +124,9 @@ pub struct Seat {
     queue_tx: Sender<Task>,
     pub new: bool,
     pub removed: bool,
-    pub focused: Option<RiverWindowV1>,
-    pub hovered: Option<RiverWindowV1>,
-    pub interacted: Option<RiverWindowV1>,
+    pub focused: Option<ObjectId>,
+    pub hovered: Option<ObjectId>,
+    pub interacted: Option<ObjectId>,
     pub xkb_bindings: HashMap<ObjectId, XkbBinding>,
     pub pointer_bindings: HashMap<ObjectId, PointerBinding>,
     pub pending_action: Action,

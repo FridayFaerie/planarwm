@@ -2,9 +2,10 @@ use std::sync::mpsc::Sender;
 use std::time::Instant;
 
 use crate::wm::task::Task;
+use crate::wm::utils::Rect;
 use crate::wm::utils::{Dimension, Position};
-use crate::wm::{RiverWindowV1, utils::Rect};
 use serde::Deserialize;
+use wayland_backend::client::ObjectId;
 
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq)]
 pub enum SlideType {
@@ -22,7 +23,7 @@ pub struct Slide {
     pub slide_type: SlideType,
     pub position: Position,
     pub dimensions: (i32, i32),
-    pub windows: Vec<RiverWindowV1>,
+    pub windows: Vec<ObjectId>,
     pub active_window: usize,
     pub inner_gaps: i32,
     pub outer_gaps: i32,
@@ -44,7 +45,7 @@ impl Slide {
         }
     }
 
-    pub fn attach_window(&mut self, window_id: RiverWindowV1) {
+    pub fn attach_window(&mut self, window_id: ObjectId) {
         if self.windows.is_empty() {
             self.windows.insert(0, window_id);
         } else {

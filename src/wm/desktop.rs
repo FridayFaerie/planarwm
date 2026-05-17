@@ -1,5 +1,7 @@
 use std::sync::mpsc::Sender;
 
+use wayland_backend::client::ObjectId;
+
 use crate::Window;
 use crate::wm::HashMap;
 use crate::wm::RiverWindowV1;
@@ -39,11 +41,7 @@ impl Desktop {
         self.workspaces.get_mut(&self.active_workspace).unwrap()
     }
 
-    pub fn attach_window(
-        &mut self,
-        window_id: RiverWindowV1,
-        windows: &mut HashMap<RiverWindowV1, Window>,
-    ) {
+    pub fn attach_window(&mut self, window_id: ObjectId, windows: &mut HashMap<ObjectId, Window>) {
         let queue_tx = self.queue_tx.clone();
         let ws = self.active_workspace_mut();
         if ws.slides.is_empty() {
