@@ -71,6 +71,11 @@ pub enum MainResponse {
         client_id: ClientId,
         request_id: u64,
     },
+    OkWatch {
+        client_id: ClientId,
+        window_id: String,
+        request_id: u64,
+    },
     Error {
         client_id: ClientId,
         request_id: u64,
@@ -91,6 +96,7 @@ enum SocketRequest {
 enum SocketResponse {
     Geometry { window_id: String, center: Position },
     Ok { request_id: u64 },
+    OkWatch { request_id: u64, window_id: String },
     Error { request_id: u64, message: String },
 }
 
@@ -260,6 +266,17 @@ pub fn drain_main_events(
                         window_id,
                         center,
                     } => (client_id, SocketResponse::Geometry { window_id, center }),
+                    MainResponse::OkWatch {
+                        client_id: _client_id,
+                        window_id,
+                        request_id,
+                    } => (
+                        _client_id,
+                        SocketResponse::OkWatch {
+                            request_id,
+                            window_id,
+                        },
+                    ),
                     MainResponse::Ok {
                         client_id: _client_id,
                         request_id,

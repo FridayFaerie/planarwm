@@ -1,14 +1,19 @@
 use wayland_backend::client::ObjectId;
 
 use crate::{
-    AppData, ipc,
+    AppData,
+    ipc::{self, MainResponse},
     wm::{
         Window,
         task::Task,
         utils::{Position, Rect},
     },
 };
-use std::{collections::HashMap, fmt::Display};
+use std::{
+    collections::HashMap,
+    fmt::Display,
+    hash::{DefaultHasher, Hash, Hasher},
+};
 
 fn response_from_result<E: Display>(
     client_id: ipc::ClientId,
@@ -51,8 +56,6 @@ pub fn drain_main_requests(
                     "processing watch request {} from client {}, asking about {}!",
                     request_id, client_id, app_id
                 );
-                // 2. put it within the array watchers
-                // 3. send the geometry, along with ack w/ the actual window name(?)
                 if let Some(id) = found_id {
                     state
                         .wm
@@ -62,12 +65,12 @@ pub fn drain_main_requests(
                         .or_default()
                         .insert(client_id);
 
-                    state.ipc_tx.send(ipc::MainResponse::Ok {
-                        client_id,
-                        request_id,
-                    })?;
-
                     if let Some(window) = state.wm.windows.get_mut(&id) {
+                        state.ipc_tx.send(ipc::MainResponse::OkWatch {
+                            client_id,
+                            window_id: id.to_string(),
+                            request_id,
+                        })?;
                         state.ipc_tx.send(ipc::MainResponse::Geometry {
                             client_id,
                             window_id: id.to_string(),
@@ -75,7 +78,6 @@ pub fn drain_main_requests(
                         })?;
                     }
                 } else {
-                    println!("couldn't find the requested window {}", app_id);
                     state.ipc_tx.send(ipc::MainResponse::Error {
                         client_id,
                         request_id,
@@ -103,7 +105,7 @@ pub fn drain_main_requests(
                     println!("couldn't unwatch {}: couldn't map to a window", app_id);
                 }
 
-                state.ipc_tx.send(ipc::MainResponse::Ok {
+                state.ipc_tx.send(MainResponse::Ok {
                     client_id,
                     request_id,
                 })?;
