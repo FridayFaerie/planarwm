@@ -38,6 +38,22 @@ pub fn drain_main_requests(
 ) -> Result<(), Box<dyn std::error::Error>> {
     while let Ok(msg) = to_main_rx.try_recv() {
         match msg {
+            MainRequest::TrackCamera {
+                client_id,
+                request_id,
+            } => {
+                state.wm.ipc.camera_watchers.insert(client_id);
+
+                state.ipc_tx.send(MainResponse::Ok {
+                    client_id,
+                    request_id,
+                })?;
+
+                state.ipc_tx.send(MainResponse::CameraPosition {
+                    client_id,
+                    pos: state.wm.render_camera_pos,
+                })?;
+            }
             MainRequest::Watch {
                 client_id,
                 request_id,

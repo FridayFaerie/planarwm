@@ -20,18 +20,24 @@ pub type ClientId = u64;
 #[derive(Debug)]
 pub struct IpcState {
     pub watchers: HashMap<ObjectId, HashSet<ClientId>>,
+    pub camera_watchers: HashSet<ClientId>,
 }
 
 impl IpcState {
     pub fn new() -> Self {
         Self {
             watchers: HashMap::new(),
+            camera_watchers: HashSet::new(),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum MainRequest {
+    TrackCamera {
+        client_id: ClientId,
+        request_id: u64,
+    },
     Watch {
         client_id: ClientId,
         request_id: u64,
@@ -55,6 +61,10 @@ pub enum MainRequest {
 #[derive(Debug, Clone)]
 // TODO: maybe rename this
 pub enum MainResponse {
+    CameraPosition {
+        client_id: ClientId,
+        pos: Position,
+    },
     Geometry {
         client_id: ClientId,
         window_id: String,
@@ -80,6 +90,7 @@ pub enum MainResponse {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
 enum SocketRequest {
+    TrackCamera { request_id: u64 },
     Watch { request_id: u64, app_name: String },
     Unwatch { request_id: u64, window_id: String },
     Focus { request_id: u64, app_id: String },
@@ -88,6 +99,9 @@ enum SocketRequest {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 enum SocketResponse {
+    CameraPosition {
+        pos: Position,
+    },
     Geometry {
         window_id: String,
         pos: Position,
@@ -209,6 +223,12 @@ fn read_clients(
                         match serde_json::from_slice::<SocketRequest>(&line) {
                             Ok(req) => {
                                 let msg = match req {
+                                    SocketRequest::TrackCamera { request_id } => {
+                                        MainRequest::TrackCamera {
+                                            client_id,
+                                            request_id,
+                                        }
+                                    }
                                     SocketRequest::Watch {
                                         request_id,
                                         app_name,
@@ -269,6 +289,9 @@ pub fn drain_main_events(
         match from_main.try_recv() {
             Ok(event) => {
                 let (client_id, response) = match event {
+                    MainResponse::CameraPosition { client_id, pos } => {
+                        (client_id, SocketResponse::CameraPosition { pos })
+                    }
                     MainResponse::Geometry {
                         client_id,
                         window_id,
