@@ -43,15 +43,6 @@ impl Window {
             self.render_position.y - camera_pos.y,
         );
     }
-
-    pub fn get_vector_from(&mut self, origin: Position) -> Position {
-        return self.render_position
-            + Position {
-                x: self.width / 2,
-                y: self.height / 2,
-            }
-            - origin;
-    }
 }
 
 #[derive(Debug, Clone)]

@@ -11,7 +11,7 @@ use crate::river::{
 use crate::wm::desktop::Desktop;
 use crate::wm::slide::SlideType;
 use crate::wm::task::{Phase, Task};
-use crate::wm::utils::Position;
+use crate::wm::utils::{Dimension, Position};
 use std::collections::HashMap;
 use std::sync::mpsc::{self, Sender};
 use std::time::Instant;
@@ -202,13 +202,19 @@ impl WindowManager {
                     window.render_position.y - self.render_camera_pos.y,
                 );
 
+                // TODO: refactor?
                 if let Some(client_ids) = self.ipc.watchers.get(id) {
                     for client_id in client_ids {
                         self.ipc_tx
                             .send(MainResponse::Geometry {
                                 client_id: *client_id,
                                 window_id: id.to_string(),
-                                center: window.get_vector_from(self.render_camera_pos),
+                                pos: window.render_position - self.render_camera_pos,
+                                // TODO: fix into window.dim
+                                dim: Dimension {
+                                    width: window.width,
+                                    height: window.height,
+                                },
                             })
                             .expect("couldn't send ipc response");
                     }
@@ -226,7 +232,12 @@ impl WindowManager {
                             .send(MainResponse::Geometry {
                                 client_id: *client_id,
                                 window_id: id.to_string(),
-                                center: window.get_vector_from(self.render_camera_pos),
+                                pos: window.render_position - self.render_camera_pos,
+                                // TODO: fix into window.dim
+                                dim: Dimension {
+                                    width: window.width,
+                                    height: window.height,
+                                },
                             })
                             .expect("couldn't send ipc response");
                     }

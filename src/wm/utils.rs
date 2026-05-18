@@ -12,7 +12,7 @@ pub struct Rect {
 }
 
 // TODO: maybe rename dimension to size
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize)]
 pub struct Dimension {
     pub width: i32,
     pub height: i32,

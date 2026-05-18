@@ -1,13 +1,6 @@
-use crate::{
-    AppData,
-    wm::{
-        task::Task,
-        utils::{Position, Rect},
-    },
-};
+use crate::wm::utils::{Dimension, Position};
 use nix::sys::eventfd::EventFd;
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
 use std::{
     collections::{HashMap, HashSet},
     io::{self, Read, Write},
@@ -42,12 +35,12 @@ pub enum MainRequest {
     Watch {
         client_id: ClientId,
         request_id: u64,
-        app_id: String,
+        app_name: String,
     },
     Unwatch {
         client_id: ClientId,
         request_id: u64,
-        app_id: String,
+        window_id: String,
     },
     Focus {
         client_id: ClientId,
@@ -65,7 +58,8 @@ pub enum MainResponse {
     Geometry {
         client_id: ClientId,
         window_id: String,
-        center: Position,
+        pos: Position,
+        dim: Dimension,
     },
     Ok {
         client_id: ClientId,
@@ -86,18 +80,30 @@ pub enum MainResponse {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
 enum SocketRequest {
-    Watch { request_id: u64, app_id: String },
-    Unwatch { request_id: u64, app_id: String },
+    Watch { request_id: u64, app_name: String },
+    Unwatch { request_id: u64, window_id: String },
     Focus { request_id: u64, app_id: String },
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 enum SocketResponse {
-    Geometry { window_id: String, center: Position },
-    Ok { request_id: u64 },
-    OkWatch { request_id: u64, window_id: String },
-    Error { request_id: u64, message: String },
+    Geometry {
+        window_id: String,
+        pos: Position,
+        dim: Dimension,
+    },
+    Ok {
+        request_id: u64,
+    },
+    OkWatch {
+        request_id: u64,
+        window_id: String,
+    },
+    Error {
+        request_id: u64,
+        message: String,
+    },
 }
 
 struct ClientState {
@@ -203,20 +209,22 @@ fn read_clients(
                         match serde_json::from_slice::<SocketRequest>(&line) {
                             Ok(req) => {
                                 let msg = match req {
-                                    SocketRequest::Watch { request_id, app_id } => {
-                                        MainRequest::Watch {
-                                            client_id,
-                                            request_id,
-                                            app_id,
-                                        }
-                                    }
-                                    SocketRequest::Unwatch { request_id, app_id } => {
-                                        MainRequest::Unwatch {
-                                            client_id,
-                                            request_id,
-                                            app_id,
-                                        }
-                                    }
+                                    SocketRequest::Watch {
+                                        request_id,
+                                        app_name,
+                                    } => MainRequest::Watch {
+                                        client_id,
+                                        request_id,
+                                        app_name,
+                                    },
+                                    SocketRequest::Unwatch {
+                                        request_id,
+                                        window_id,
+                                    } => MainRequest::Unwatch {
+                                        client_id,
+                                        request_id,
+                                        window_id,
+                                    },
                                     SocketRequest::Focus { request_id, app_id } => {
                                         MainRequest::Focus {
                                             client_id,
@@ -264,8 +272,16 @@ pub fn drain_main_events(
                     MainResponse::Geometry {
                         client_id,
                         window_id,
-                        center,
-                    } => (client_id, SocketResponse::Geometry { window_id, center }),
+                        pos,
+                        dim,
+                    } => (
+                        client_id,
+                        SocketResponse::Geometry {
+                            window_id,
+                            pos,
+                            dim,
+                        },
+                    ),
                     MainResponse::OkWatch {
                         client_id: _client_id,
                         window_id,
