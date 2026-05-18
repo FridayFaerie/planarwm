@@ -72,8 +72,10 @@ pub struct WindowManager {
     queue_rx: Receiver<Task>,
     pub queue_tx: Sender<Task>,
     // TODO: camera_pos should probably belong in output
+    // TODO: yes I know this looks dumb I'm sorry
     pub camera_pos: Position,
-    pub render_camera_pos: Option<Position>,
+    pub render_camera_pos: Position,
+    pub rendered_camera_pos: Position,
     pub target_camera_pos: Position,
 
     pub ipc: IpcState,
@@ -94,7 +96,8 @@ pub struct Window {
     pub height: i32,
 
     pub original_position: Position,
-    pub render_position: Option<Position>,
+    pub render_position: Position,
+    pub rendered_position: Position,
     pub target_position: Position,
 
     pub new: bool,

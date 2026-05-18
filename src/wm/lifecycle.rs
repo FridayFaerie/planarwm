@@ -30,7 +30,8 @@ impl WindowManager {
             queue_tx,
             queue_rx,
             camera_pos: Position { x: 0, y: 0 },
-            render_camera_pos: None,
+            render_camera_pos: Position { x: 0, y: 0 },
+            rendered_camera_pos: Position { x: 0, y: 0 },
             target_camera_pos: Position { x: 0, y: 0 },
 
             ipc: IpcState::new(),
@@ -64,6 +65,7 @@ impl WindowManager {
         config: &Config,
     ) {
         // println!("=========\nmanage start");
+
         self.tick_tasks(Phase::Manage);
 
         self.remove_outputs();
@@ -114,6 +116,7 @@ impl WindowManager {
 
     pub fn handle_render_start(&mut self, proxy: &RiverWindowManagerV1) {
         // println!("=========\nrender start");
+
         if self.tick_tasks(Phase::Render) > 0 {
             proxy.manage_dirty();
         };
@@ -186,51 +189,54 @@ impl WindowManager {
 
     // TODO: is there a better way to do this? (what on earth is this logic)
     pub fn set_window_node_positions(&mut self) {
-        // TODO: is there a way to not do this so frequently?
+        let render_camera_pos_changed = self.render_camera_pos != self.rendered_camera_pos;
 
+        // TODO: is there a way to not do this so frequently?
         // TODO: is there a better way to do this? (what on earth is this logic)
-        let (camera_pos, render_camera_pos_existed) =
-            if let Some(pos) = self.render_camera_pos.take() {
-                (pos, true)
-            } else {
-                (self.camera_pos, false)
-            };
 
         for (id, window) in self.windows.iter_mut() {
-            if let Some(render_position) = window.render_position.take() {
+            let window_render_position_changed = window.render_position != window.rendered_position;
+            if window_render_position_changed {
                 window.node.set_position(
-                    render_position.x - camera_pos.x,
-                    render_position.y - camera_pos.y,
+                    window.render_position.x - self.render_camera_pos.x,
+                    window.render_position.y - self.render_camera_pos.y,
                 );
+
                 if let Some(client_ids) = self.ipc.watchers.get(id) {
                     for client_id in client_ids {
                         self.ipc_tx
                             .send(MainResponse::Geometry {
                                 client_id: *client_id,
                                 app_id: window.app_id.clone(),
-                                center: window.get_vector_from(self.camera_pos),
+                                center: window.get_vector_from(self.render_camera_pos),
                             })
                             .expect("couldn't send ipc response");
                     }
                 }
-            } else if render_camera_pos_existed {
+                window.rendered_position = window.render_position;
+            } else if render_camera_pos_changed {
                 window.node.set_position(
-                    window.original_position.x - camera_pos.x,
-                    window.original_position.y - camera_pos.y,
+                    window.render_position.x - self.render_camera_pos.x,
+                    window.render_position.y - self.render_camera_pos.y,
                 );
+
                 if let Some(client_ids) = self.ipc.watchers.get(id) {
                     for client_id in client_ids {
                         self.ipc_tx
                             .send(MainResponse::Geometry {
                                 client_id: *client_id,
                                 app_id: window.app_id.clone(),
-                                center: window.get_vector_from(self.camera_pos),
+                                center: window.get_vector_from(self.render_camera_pos),
                             })
                             .expect("couldn't send ipc response");
                     }
                 }
             }
+            window.render_position = window.original_position;
         }
+
+        self.rendered_camera_pos = self.render_camera_pos;
+        self.render_camera_pos = self.camera_pos;
     }
 
     pub fn remove_outputs(&mut self) {

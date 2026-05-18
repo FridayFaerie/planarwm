@@ -22,7 +22,8 @@ impl Window {
 
             // TODO: maybe not default to 0?
             original_position: Position { x: 0, y: 0 },
-            render_position: None,
+            render_position: Position { x: 0, y: 0 },
+            rendered_position: Position { x: 0, y: 0 },
             target_position: Position { x: 0, y: 0 },
 
             new: true,
@@ -37,28 +38,14 @@ impl Window {
 
     // TODO: remove?
     pub fn set_node_position(&mut self, camera_pos: Position) {
-        if let Some(render_position) = self.render_position {
-            self.node.set_position(
-                render_position.x - camera_pos.x,
-                render_position.y - camera_pos.y,
-            );
-        } else {
-            self.node.set_position(
-                self.original_position.x - camera_pos.x,
-                self.original_position.y - camera_pos.y,
-            );
-        }
+        self.node.set_position(
+            self.render_position.x - camera_pos.x,
+            self.render_position.y - camera_pos.y,
+        );
     }
 
     pub fn get_vector_from(&mut self, origin: Position) -> Position {
-        let pos;
-        if let Some(position) = self.render_position {
-            pos = position;
-        } else {
-            pos = self.original_position;
-        }
-
-        return pos
+        return self.render_position
             + Position {
                 x: self.width / 2,
                 y: self.height / 2,

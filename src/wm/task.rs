@@ -101,11 +101,7 @@ impl Task {
 
                     if elapsed > *duration {
                         window.original_position += *diff_pos;
-                        if let Some(render_position) = window.render_position.as_mut() {
-                            *render_position += diff_pos;
-                        } else {
-                            window.render_position = Some(window.original_position);
-                        }
+                        window.render_position += diff_pos;
                         return true;
                     }
 
@@ -114,12 +110,7 @@ impl Task {
                     let smooth_t = t * t * (3.0 - 2.0 * t);
                     let partial_diff_pos = *diff_pos * smooth_t;
 
-                    if let Some(mut render_position) = window.render_position {
-                        render_position += partial_diff_pos;
-                        window.render_position = Some(render_position);
-                    } else {
-                        window.render_position = Some(window.original_position + partial_diff_pos);
-                    }
+                    window.render_position += partial_diff_pos;
 
                     false
                 } else {
@@ -204,11 +195,7 @@ impl Task {
 
                 if elapsed > *duration {
                     wm.camera_pos += *diff_pos;
-                    if let Some(render_position) = wm.render_camera_pos.as_mut() {
-                        *render_position += diff_pos;
-                    } else {
-                        wm.render_camera_pos = Some(wm.camera_pos);
-                    }
+                    wm.render_camera_pos += diff_pos;
                     return true;
                 }
 
@@ -217,13 +204,7 @@ impl Task {
                 let smooth_t = t * t * (3.0 - 2.0 * t);
                 let partial_diff_pos = *diff_pos * smooth_t;
 
-                if let Some(mut render_position) = wm.render_camera_pos {
-                    render_position += partial_diff_pos;
-                    wm.render_camera_pos = Some(render_position);
-                } else {
-                    wm.render_camera_pos = Some(wm.camera_pos + partial_diff_pos);
-                }
-
+                wm.render_camera_pos += partial_diff_pos;
                 false
             }
             // TODO: maybe remove this?
