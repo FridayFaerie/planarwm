@@ -64,7 +64,7 @@ pub enum MainRequest {
 pub enum MainResponse {
     Geometry {
         client_id: ClientId,
-        app_id: String,
+        window_id: String,
         center: Position,
     },
     Ok {
@@ -89,7 +89,7 @@ enum SocketRequest {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 enum SocketResponse {
-    Geometry { app_id: String, center: Position },
+    Geometry { window_id: String, center: Position },
     Ok { request_id: u64 },
     Error { request_id: u64, message: String },
 }
@@ -257,9 +257,9 @@ pub fn drain_main_events(
                 let (client_id, response) = match event {
                     MainResponse::Geometry {
                         client_id,
-                        app_id,
+                        window_id,
                         center,
-                    } => (client_id, SocketResponse::Geometry { app_id, center }),
+                    } => (client_id, SocketResponse::Geometry { window_id, center }),
                     MainResponse::Ok {
                         client_id: _client_id,
                         request_id,

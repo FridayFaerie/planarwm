@@ -70,7 +70,7 @@ pub fn drain_main_requests(
                     if let Some(window) = state.wm.windows.get_mut(&id) {
                         state.ipc_tx.send(ipc::MainResponse::Geometry {
                             client_id,
-                            app_id: window.app_id.to_string(),
+                            window_id: id.to_string(),
                             center: window.get_vector_from(state.wm.camera_pos),
                         })?;
                     }

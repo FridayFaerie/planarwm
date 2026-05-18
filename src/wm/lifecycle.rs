@@ -207,7 +207,7 @@ impl WindowManager {
                         self.ipc_tx
                             .send(MainResponse::Geometry {
                                 client_id: *client_id,
-                                app_id: window.app_id.clone(),
+                                window_id: id.to_string(),
                                 center: window.get_vector_from(self.render_camera_pos),
                             })
                             .expect("couldn't send ipc response");
@@ -225,7 +225,7 @@ impl WindowManager {
                         self.ipc_tx
                             .send(MainResponse::Geometry {
                                 client_id: *client_id,
-                                app_id: window.app_id.clone(),
+                                window_id: id.to_string(),
                                 center: window.get_vector_from(self.render_camera_pos),
                             })
                             .expect("couldn't send ipc response");
