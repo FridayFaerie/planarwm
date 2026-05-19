@@ -14,7 +14,8 @@ use crate::wm::task::{Phase, Task};
 use crate::wm::utils::{Dimension, Position};
 use std::collections::HashMap;
 use std::sync::mpsc::{self, Sender};
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::thread::sleep;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use wayland_backend::client::ObjectId;
 use wayland_client::QueueHandle;
 
@@ -126,7 +127,7 @@ impl WindowManager {
                 SeatOp::None => {}
                 SeatOp::Pan { start_camera_pos} => {
                     // TODO: why isn't this auto-formatting?
-                    self.camera_pos =  *start_camera_pos - seat.op_diff;
+                    self.camera_pos =  *start_camera_pos - seat.op_diff * 2.0;
                     self.target_camera_pos = self.camera_pos;
                 }
                 SeatOp::Move {
@@ -201,6 +202,8 @@ impl WindowManager {
                     .expect("couldn't send ipc response");
             }
         }
+
+        // sleep(Duration::from_millis(10));
 
         // TODO: is there a way to not do this so frequently?
         // TODO: is there a better way to do this? (what on earth is this logic)

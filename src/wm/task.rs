@@ -134,14 +134,14 @@ impl Task {
                 }
                 false
             }
+            // TODO: block other changes if fullscreened
             Task::MaximizeWindow { window_id } => {
-                if phase == Phase::Manage
-                    && let Some(window) = wm.windows.get_mut(window_id)
-                {
+                if phase != Phase::Manage {
+                    return false;
+                }
+                if let Some(window) = wm.windows.get_mut(window_id) {
                     if window.maximized {
-                        // TODO: write this code
-                        if let Some(window) = wm.windows.get_mut(window_id)
-                            && let Some(loc) = &window.location
+                        if let Some(loc) = &window.location
                             && let Some(workspace) =
                                 wm.desktop.workspaces.get_mut(&loc.workspace_id)
                             && let Some(slide) =
@@ -149,21 +149,19 @@ impl Task {
                         {
                             slide.rearrange();
                         }
+                        window.proxy.exit_fullscreen();
+                        window.maximized = false;
                     } else {
-                        if let Some((width, height)) =
-                            wm.outputs.values().find_map(|output| output.dimensions)
-                        {
-                            (window.x, window.y) = (wm.camera_pos.x, wm.camera_pos.y);
-                            (window.width, window.height) = (width, height);
-                            window.proxy.propose_dimensions(width, height);
-                            window.node.set_position(wm.camera_pos.x, wm.camera_pos.y);
-                            // NOTE: not informing because they're already maximized :)
-                            // window.proxy.inform_maximized()
+                        if let Some(output) = wm.outputs.values().last() {
+                            window.proxy.fullscreen(&output.proxy);
+                            window.maximized = true;
+                            // TODO: switch to dimensions
+                            window.width = output.dimensions.unwrap().0;
+                            window.height = output.dimensions.unwrap().1;
                         }
                     }
-                    return true;
                 }
-                false
+                true
             }
             Task::SetCamera { pos, timer } => {
                 let diff_pos = *pos - wm.target_camera_pos;

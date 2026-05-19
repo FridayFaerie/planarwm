@@ -117,13 +117,13 @@ impl Seat {
                     self.pointer_resize(window, Edges::Bottom.union(Edges::Right));
                 }
             }
-            Action::ToggleMaximize => {
+            Action::ToggleFullscreen => {
                 if let Some(window_proxy) = self.focused.clone() {
                     self.queue_tx
                         .send(Task::MaximizeWindow {
                             window_id: window_proxy,
                         })
-                        .expect("couldn't send togglemaximize");
+                        .expect("couldn't send ToggleFullscreen");
                 }
             }
             Action::PrevSlide => {
@@ -304,7 +304,6 @@ impl Seat {
     //     }
     // }
 
-    // TODO: convert seatop to use camera_pos
     fn pointer_pan(&mut self, camera_pos: &mut Position) {
         self.proxy.op_start_pointer();
         self.op = SeatOp::Pan {
