@@ -69,13 +69,16 @@ impl Workspace {
             .slides
             .get_mut(self.active_slide)
             .unwrap_or_else(|| panic!("can't find active slide!!"));
+
         let window_id = active_slide.windows.remove(active_slide.active_window);
         active_slide.rearrange();
+
         self.next_slide();
         let active_slide = self
             .slides
             .get_mut(self.active_slide)
             .unwrap_or_else(|| panic!("can't find the active slide"));
+        active_slide.active_window -= 1;
         active_slide.attach_window(window_id.clone());
 
         if let Some(window) = windows.get_mut(&window_id) {
@@ -90,11 +93,13 @@ impl Workspace {
             .unwrap_or_else(|| panic!("can't find active slide!!"));
         let window_id = active_slide.windows.remove(active_slide.active_window);
         active_slide.rearrange();
+
         self.prev_slide();
         let active_slide = self
             .slides
             .get_mut(self.active_slide)
             .unwrap_or_else(|| panic!("can't find the active slide"));
+        active_slide.active_window -= 1;
         active_slide.attach_window(window_id.clone());
 
         if let Some(window) = windows.get_mut(&window_id) {

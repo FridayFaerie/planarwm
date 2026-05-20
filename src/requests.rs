@@ -42,6 +42,7 @@ pub fn drain_main_requests(
                 client_id,
                 request_id,
             } => {
+                // TODO: I don't ever remove watchers...
                 state.wm.ipc.camera_watchers.insert(client_id);
 
                 state.ipc_tx.send(MainResponse::Ok {
@@ -61,6 +62,7 @@ pub fn drain_main_requests(
             } => {
                 let found_id = find_window_id(app_name.to_lowercase(), &mut state.wm.windows);
                 if let Some(id) = found_id {
+                    // TODO: I don't ever remove watchers...
                     state
                         .wm
                         .ipc
