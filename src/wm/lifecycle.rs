@@ -4,6 +4,7 @@ use crate::actions::{Action, parse_action, parse_keysym, parse_modifiers};
 use crate::config::{Config, WindowConfig};
 use crate::ipc::{IpcState, MainResponse};
 use crate::protocol::river::wayland_client::Proxy;
+use crate::river::river_window_v1::Edges;
 use crate::river::{
     river_seat_v1::Modifiers, river_window_manager_v1::RiverWindowManagerV1,
     river_xkb_bindings_v1::RiverXkbBindingsV1,
@@ -347,7 +348,8 @@ impl WindowManager {
                 if window_config.force_ssd {
                     window.proxy.use_ssd();
                 }
-                window.proxy.inform_maximized();
+                // window.proxy.inform_maximized();
+                window.proxy.set_tiled(Edges::all());
                 window.new = false;
                 window.node.place_top();
                 // window.proxy.set_borders(Edges::all(), 3, 4294967295, 0, 0, 4294967295);
