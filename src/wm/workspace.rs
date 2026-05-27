@@ -50,11 +50,12 @@ impl Workspace {
         let mut running_y = 0;
 
         for slide in self.slides.iter_mut() {
+            running_y -= slide.outer_gaps;
             slide.position = Position {
                 x: self.coord.x,
                 y: self.coord.y + running_y,
             };
-            running_y += slide.dimensions.1 - 2 * slide.outer_gaps + self.inner_gaps;
+            running_y += slide.dimensions.1 - slide.outer_gaps + self.inner_gaps;
             slide.rearrange();
         }
     }
