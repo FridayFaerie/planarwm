@@ -68,6 +68,24 @@ impl Slide {
         }
     }
 
+    pub fn moveto_next_window(&mut self) {
+        if self.active_window + 1 < self.windows.len() {
+            let current_window = self.windows.remove(self.active_window);
+            self.windows.insert(self.active_window + 1, current_window);
+            self.active_window += 1;
+            self.rearrange();
+        }
+    }
+
+    pub fn moveto_prev_window(&mut self) {
+        if self.active_window > 0 {
+            let current_window = self.windows.remove(self.active_window);
+            self.windows.insert(self.active_window - 1, current_window);
+            self.active_window -= 1;
+            self.rearrange();
+        }
+    }
+
     pub fn cycle_tiling(&mut self) {
         if self.slide_type == SlideType::VerticalScroll {
             self.outer_gaps = 0;

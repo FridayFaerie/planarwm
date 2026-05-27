@@ -178,6 +178,16 @@ impl Seat {
                     })
                     .expect("couldn't send setcamera");
             }
+            Action::MoveToNextWindow => {
+                let workspace = desktop.active_workspace_mut();
+                let slide = workspace.active_slide_mut();
+                slide.moveto_next_window();
+            }
+            Action::MoveToPrevWindow => {
+                let workspace = desktop.active_workspace_mut();
+                let slide = workspace.active_slide_mut();
+                slide.moveto_prev_window();
+            }
             Action::PrevWindow => {
                 let slide = desktop.active_workspace_mut().active_slide_mut();
                 slide.prev_window();
@@ -185,6 +195,7 @@ impl Seat {
                 // TODO: idt I should do this weird check
                 // TODO: Not sure if I need to do this for all seats - if I do, I need a new
                 // FocusOnWindow task prolly
+                // TODO: might want to just put this all within prev_window()
                 if !slide.windows.is_empty() {
                     self.focus_window(&slide.windows[slide.active_window], windows)
                 }
