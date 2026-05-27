@@ -15,8 +15,7 @@ use crate::wm::task::{Phase, Task};
 use crate::wm::utils::{Dimension, Position};
 use std::collections::HashMap;
 use std::sync::mpsc::{self, Sender};
-use std::thread::sleep;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Instant;
 use wayland_backend::client::ObjectId;
 use wayland_client::QueueHandle;
 

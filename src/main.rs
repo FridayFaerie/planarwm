@@ -28,12 +28,17 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::mpsc::{self, Sender};
 use wayland_client::Connection;
+use wayland_client::protocol::wl_compositor::WlCompositor;
+use wayland_client::protocol::wl_shm::WlShm;
 
 pub use protocol::river;
 
 #[derive(Debug)]
 struct AppData {
     config: Config,
+
+    compositor: Option<WlCompositor>,
+    shm: Option<WlShm>,
     river_wm: Option<RiverWindowManagerV1>,
     river_xkb: Option<RiverXkbBindingsV1>,
     river_ls: Option<RiverLayerShellV1>,
@@ -78,6 +83,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // TODO: I can probably split off this config section and not use clone someday
     let mut app_data = AppData {
         config,
+
+        compositor: None,
+        shm: None,
+
         river_wm: None,
         river_xkb: None,
         river_ls: None,

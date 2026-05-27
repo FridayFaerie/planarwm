@@ -1,6 +1,7 @@
 use super::{LayerFocus, Output, Seat, Window};
 use crate::AppData;
 pub use crate::protocol::river;
+use crate::river::river_shell_surface_v1::RiverShellSurfaceV1;
 use crate::river::{
     river_input_device_v1::RiverInputDeviceV1, river_input_manager_v1::RiverInputManagerV1,
     river_layer_shell_output_v1::RiverLayerShellOutputV1,
@@ -14,9 +15,13 @@ use crate::river::{
     river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
 use crate::wm::LibinputDevice;
+use crate::wm::background::Background;
 use crate::wm::task::Task;
 use crate::wm::utils::Position;
 use wayland_backend::client::ObjectId;
+use wayland_client::protocol::wl_compositor::WlCompositor;
+use wayland_client::protocol::wl_shm::WlShm;
+use wayland_client::protocol::wl_surface::WlSurface;
 use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, protocol::wl_registry};
 
 impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
@@ -91,9 +96,51 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
                     state.river_lc =
                         Some(registry.bind::<RiverLibinputConfigV1, _, _>(name, 1, qh, ()));
                 }
+                "wl_compositor" => {
+                    state.compositor = Some(registry.bind::<WlCompositor, _, _>(name, 6, qh, ()));
+                }
+                "wl_shm" => {
+                    state.shm = Some(registry.bind::<WlShm, _, _>(name, 2, qh, ()));
+                }
                 _ => {}
             }
         }
+    }
+}
+
+impl Dispatch<WlShm, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &WlShm,
+        _event: <WlShm as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+    }
+}
+
+impl Dispatch<WlCompositor, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &WlCompositor,
+        _event: <WlCompositor as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+    }
+}
+
+impl Dispatch<WlSurface, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &WlSurface,
+        _event: <WlSurface as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
     }
 }
 
@@ -134,12 +181,25 @@ impl Dispatch<RiverWindowManagerV1, ()> for AppData {
                     output.layer =
                         Some(layer_shell.get_output(&output.proxy, qh, output.proxy.id()));
                 }
+                if let Some(compositor) = state.compositor.as_mut()
+                    && let Some(river_wm) = state.river_wm.as_mut()
+                    && let Some(shm) = state.shm.as_mut()
+                {
+                    output.background = Some(Background::new(
+                        compositor,
+                        shm,
+                        river_wm,
+                        qh,
+                        output.dimensions.unwrap_or((1000, 1000)).0 as u32,
+                        output.dimensions.unwrap_or((1000, 1000)).1 as u32,
+                    ));
+                }
                 state.wm.outputs.insert(id.id(), output);
                 state
                     .wm
                     .queue_tx
-                    .send(Task::SetDefaultLayerShellOutput {})
-                    .expect("couldn't send setdefaultlayershelloutput");
+                    .send(Task::InitNewOutput { id: id.id() })
+                    .expect("couldn't send initnewoutput");
             }
             Event::Seat { id } => {
                 let mut seat = Seat::new(id.clone(), state.wm.queue_tx.clone());
@@ -541,6 +601,18 @@ impl Dispatch<RiverLibinputResultV1, ()> for AppData {
                 eprintln!("libinput setting invalid")
             }
         }
+    }
+}
+
+impl Dispatch<RiverShellSurfaceV1, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &RiverShellSurfaceV1,
+        _event: <RiverShellSurfaceV1 as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
     }
 }
 

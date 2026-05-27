@@ -1,3 +1,4 @@
+pub mod background;
 pub mod desktop;
 pub mod dispatch;
 pub mod libinputdevice;
@@ -12,6 +13,7 @@ pub mod workspace;
 
 use crate::ipc::IpcState;
 use crate::ipc::MainResponse;
+use crate::wm::background::Background;
 use crate::wm::desktop::Desktop;
 use crate::wm::task::Task;
 use crate::wm::utils::Position;
@@ -120,10 +122,9 @@ pub struct Output {
     pub proxy: RiverOutputV1,
     pub removed: bool,
     pub layer: Option<RiverLayerShellOutputV1>,
-    // node
     pub position: Option<(i32, i32)>,
     pub dimensions: Option<(i32, i32)>,
-    // logical
+    pub background: Option<Background>,
 }
 
 #[derive(Debug)]

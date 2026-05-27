@@ -240,10 +240,17 @@ impl Task {
                 eprintln!("TODO: implement FocusWindow");
                 true
             }
-            Task::SetDefaultLayerShellOutput {} => {
-                for output in wm.outputs.values_mut() {
+            Task::InitNewOutput { id } => {
+                if let Some(output) = wm.outputs.get_mut(id) {
                     if let Some(layer_shell_output) = output.layer.as_mut() {
                         layer_shell_output.set_default();
+                    }
+                    if let Some(background) = output.background.as_mut() {
+                        println!("initiating background");
+                        background.node.place_bottom();
+                        background.node.set_position(0, 0);
+                        background.draw_solid(0xFFFF00FF);
+                        background.sync_commit();
                     }
                 }
                 true
@@ -309,5 +316,7 @@ pub enum Task {
     FocusWindow {
         app_id: String,
     },
-    SetDefaultLayerShellOutput {},
+    InitNewOutput {
+        id: ObjectId,
+    },
 }
