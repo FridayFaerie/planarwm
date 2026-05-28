@@ -192,10 +192,10 @@ impl Dispatch<RiverWindowManagerV1, ()> for AppData {
                         qh,
                         // TODO: change this to like 1,1 or something, and wait for the output's
                         // dimensions event
-                        output.dimensions.unwrap_or((1920, 1080)).0 as u32,
-                        output.dimensions.unwrap_or((1920, 1080)).1 as u32,
-                        // "/home/friday/.config/walls/tiledsmallskull.jpg",
-                        "/home/friday/.config/walls/istockphoto-1210551064-612x612.jpg",
+                        output.dimensions.unwrap_or((1280, 720)).0 as u32,
+                        output.dimensions.unwrap_or((1280, 720)).1 as u32,
+                        "/home/friday/.config/walls/tiledsmallskull.jpg",
+                        // "/home/friday/.config/walls/istockphoto-1210551064-612x612.jpg",
                     ));
                 }
                 state.wm.outputs.insert(id.id(), output);
