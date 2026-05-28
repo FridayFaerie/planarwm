@@ -104,7 +104,7 @@ impl Background {
         }
     }
 
-    pub fn draw_solid(&mut self, color: u32) {
+    pub fn _draw_solid(&mut self, color: u32) {
         let pixels = self.width * self.height;
         let bytes = color.to_ne_bytes();
 
@@ -114,7 +114,7 @@ impl Background {
         }
     }
 
-    pub fn draw<F>(&mut self, mut f: F)
+    pub fn _draw<F>(&mut self, mut f: F)
     where
         F: FnMut(u32, u32) -> u32,
     {
@@ -140,39 +140,45 @@ impl Background {
         self.commit();
     }
 
-    // TODO: this is probably stupidly slow, fix someday
+    // TODO: literally no clue what this does, look at this someday
     pub fn render(&mut self, camera_pos: Position) {
-        let pixels: &mut [u32] = bytemuck::cast_slice_mut(&mut self.shm_data);
+        let dst: &mut [u32] = bytemuck::cast_slice_mut(&mut self.shm_data);
 
-        let wallpaper = &self.wallpaper;
+        let src = &self.wallpaper.pixels;
 
-        let w = wallpaper.width as i32;
-        let h = wallpaper.height as i32;
+        let screen_w = self.width as usize;
+        let screen_h = self.height as usize;
 
-        let mut sy = camera_pos.y.rem_euclid(h);
+        let tex_w = self.wallpaper.width as usize;
+        let tex_h = self.wallpaper.height as usize;
 
-        let mut dst_index = 0;
+        let start_x = camera_pos.x.rem_euclid(tex_w as i32) as usize;
 
-        for _y in 0..self.height {
-            let row_start = sy as usize * wallpaper.width as usize;
+        let mut sy = camera_pos.y.rem_euclid(tex_h as i32) as usize;
 
-            let mut sx = camera_pos.x.rem_euclid(w);
+        for y in 0..screen_h {
+            let dst_row = &mut dst[y * screen_w..(y + 1) * screen_w];
 
-            for _x in 0..self.width {
-                pixels[dst_index] = wallpaper.pixels[row_start + sx as usize];
+            let src_row = &src[sy * tex_w..(sy + 1) * tex_w];
 
-                dst_index += 1;
+            let mut remaining = screen_w;
+            let mut dst_offset = 0;
+            let mut sx = start_x;
 
-                sx += 1;
+            while remaining > 0 {
+                let chunk = (tex_w - sx).min(remaining);
 
-                if sx >= w {
-                    sx = 0;
-                }
+                dst_row[dst_offset..dst_offset + chunk].copy_from_slice(&src_row[sx..sx + chunk]);
+
+                remaining -= chunk;
+                dst_offset += chunk;
+
+                sx = 0;
             }
 
             sy += 1;
 
-            if sy >= h {
+            if sy >= tex_h {
                 sy = 0;
             }
         }
@@ -200,13 +206,6 @@ impl Wallpaper {
             height,
             pixels,
         }
-    }
-
-    #[inline]
-    pub fn sample(&self, x: i32, y: i32) -> u32 {
-        let tx = x.rem_euclid(self.width as i32) as u32;
-        let ty = y.rem_euclid(self.height as i32) as u32;
-        self.pixels[(ty * self.width + tx) as usize]
     }
 }
 
