@@ -109,7 +109,7 @@ impl WindowManager {
                 workspace.child_rearrange_required = true;
             }
         }
-        self.set_window_node_positions();
+        self.set_window_node_positions(proxy);
 
         // println!("manage finish\n=========");
         proxy.manage_finish();
@@ -173,23 +173,23 @@ impl WindowManager {
             }
         }
 
-        self.set_window_node_positions();
+        self.set_window_node_positions(proxy);
 
-        // TODO: this is kinda overdoing it with the set_window_node_positions code
-        for seat in self.seats.values_mut() {
-            if seat.op != SeatOp::None {
-                for window in self.windows.values_mut() {
-                    window.set_node_position(self.camera_pos);
-                }
-            }
-        }
+        // // TODO: this is kinda overdoing it with the set_window_node_positions code - remove
+        // for seat in self.seats.values_mut() {
+        //     if seat.op != SeatOp::None {
+        //         for window in self.windows.values_mut() {
+        //             window.set_node_position(self.camera_pos);
+        //         }
+        //     }
+        // }
 
         // println!("render finish\n=========");
         proxy.render_finish();
     }
 
     // TODO: is there a better way to do this? (what on earth is this logic)
-    pub fn set_window_node_positions(&mut self) {
+    pub fn set_window_node_positions(&mut self, proxy: &RiverWindowManagerV1) {
         let render_camera_pos_changed = self.render_camera_pos != self.rendered_camera_pos;
 
         if render_camera_pos_changed {
@@ -200,6 +200,12 @@ impl WindowManager {
                         pos: self.render_camera_pos,
                     })
                     .expect("couldn't send ipc response");
+            }
+            for output in self.outputs.values_mut() {
+                if let Some(background) = output.background.as_mut() {
+                    background.render(self.render_camera_pos);
+                    background.sync_commit();
+                }
             }
         }
 
@@ -260,6 +266,10 @@ impl WindowManager {
             window.render_position = window.original_position;
         }
 
+        // TODO: this is really really ugly.... fix someday?
+        if self.render_camera_pos != self.camera_pos {
+            proxy.manage_dirty();
+        }
         self.rendered_camera_pos = self.render_camera_pos;
         self.render_camera_pos = self.camera_pos;
     }
