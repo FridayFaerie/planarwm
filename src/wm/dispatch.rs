@@ -320,25 +320,25 @@ impl Dispatch<RiverOutputV1, ()> for AppData {
             .get_mut(&proxy.id())
             .expect("Output {proxy.id()} not found");
         match event {
+            // TODO: I should remove the background's wlsurface, shellsurface, node, buffer etc
             Event::Removed => output.removed = true,
             Event::WlOutput { name: _ } => {}
             Event::Position { x, y } => output.position = Some((x, y)),
             Event::Dimensions { width, height } => {
-                println!("dimensions event received");
                 if let Some(background) = &mut output.background {
-                    println!("destroying old node, shell_surface, wl_surface");
-                    // TODO: consolidate into background.destroy()
-                    background.node.destroy();
-                    background.shell_surface.destroy();
-                    background.wl_surface.destroy();
-                    background.buffer.destroy();
-                }
-                if let Some(compositor) = state.compositor.as_mut()
+                    background.resize(qh, width as u32, height as u32);
+                    state
+                        .wm
+                        .queue_tx
+                        .send(Task::InitNewBackground {
+                            id: output.proxy.id(),
+                        })
+                        .expect("couldn't send initnewbackground");
+                } else if let Some(compositor) = state.compositor.as_mut()
                     && let Some(river_wm) = state.river_wm.as_mut()
                     && let Some(shm) = state.shm.as_mut()
                     && !state.config.window.wallpaper_path.is_empty()
                 {
-                    println!("creating new background");
                     output.background = Some(Background::new(
                         compositor,
                         shm,

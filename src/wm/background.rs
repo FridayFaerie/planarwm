@@ -1,7 +1,7 @@
 use bytemuck::cast_slice_mut;
 use memmap2::MmapMut;
 use rustix::fs::{MemfdFlags, ftruncate, memfd_create};
-use std::{ffi::CString, fs::File, os::fd::AsFd, path::Path};
+use std::{ffi::CString, fs::File, mem::replace, os::fd::AsFd, path::Path};
 use wayland_client::{
     Connection, Dispatch, Proxy, QueueHandle,
     protocol::{
@@ -27,12 +27,12 @@ pub struct Background {
     pub wl_surface: WlSurface,
     pub shell_surface: RiverShellSurfaceV1,
     pub node: RiverNodeV1,
-
     pub buffer: WlBuffer,
 
     width: u32,
     height: u32,
 
+    pub shm: WlShm,
     pub shm_data: MmapMut,
 
     wallpaper: Wallpaper,
@@ -55,41 +55,11 @@ impl Background {
         height: u32,
         wallpaper_path: impl AsRef<Path>,
     ) -> Self {
+        let (buffer, shm_data) = create_buffer(qh, shm, width, height);
+
         let wl_surface = compositor.create_surface(qh, ());
         let shell_surface = river_wm.get_shell_surface(&wl_surface, qh, ());
         let node = shell_surface.get_node(qh, ());
-        println!(
-            "new objects have the following id: \n{}\n{}\n{}",
-            wl_surface.id(),
-            shell_surface.id(),
-            node.id()
-        );
-
-        let size = width * height * 4;
-
-        let name = CString::new("background").unwrap();
-
-        let fd = memfd_create(name.as_c_str(), MemfdFlags::CLOEXEC).unwrap();
-
-        ftruncate(&fd, size as u64).unwrap();
-
-        let file: File = fd.into();
-
-        let shm_data = unsafe { MmapMut::map_mut(&file).unwrap() };
-
-        let pool: WlShmPool = shm.create_pool(file.as_fd(), size as i32, qh, ());
-
-        let buffer = pool.create_buffer(
-            0,
-            width as i32,
-            height as i32,
-            (width * 4) as i32,
-            wl_shm::Format::Argb8888,
-            qh,
-            (),
-        );
-
-        pool.destroy();
 
         let wallpaper = Wallpaper::load(wallpaper_path);
 
@@ -100,9 +70,31 @@ impl Background {
             buffer,
             width,
             height,
+            shm: shm.clone(),
             shm_data,
             wallpaper,
         }
+    }
+
+    pub fn resize(&mut self, qh: &QueueHandle<AppData>, width: u32, height: u32) {
+        if self.width == width && self.height == height {
+            return;
+        }
+
+        let (new_buffer, new_shm_data) = create_buffer(qh, &self.shm, width, height);
+
+        let old_buffer = replace(&mut self.buffer, new_buffer);
+
+        self.shm_data = new_shm_data;
+        self.width = width;
+        self.height = height;
+
+        // TODO: might not be needed - check?
+        self.wl_surface.attach(None, 0, 0);
+        self.wl_surface.commit();
+
+        // TODO: better to destroy after wl_buffer.release?
+        old_buffer.destroy();
     }
 
     pub fn draw_solid(&mut self, color: u32) {
@@ -128,17 +120,12 @@ impl Background {
         }
     }
 
-    pub fn commit(&self) {
+    pub fn sync_commit(&self) {
+        self.shell_surface.sync_next_commit();
         self.wl_surface.attach(Some(&self.buffer), 0, 0);
-
         self.wl_surface
             .damage_buffer(0, 0, self.width as i32, self.height as i32);
         self.wl_surface.commit();
-    }
-
-    pub fn sync_commit(&self) {
-        self.shell_surface.sync_next_commit();
-        self.commit();
     }
 
     pub fn render(&mut self, camera_pos: Position) {
@@ -238,4 +225,39 @@ impl Dispatch<WlBuffer, ()> for AppData {
             _ => {}
         }
     }
+}
+
+fn create_buffer(
+    qh: &QueueHandle<AppData>,
+    shm: &WlShm,
+    width: u32,
+    height: u32,
+) -> (WlBuffer, MmapMut) {
+    let stride = width * 4;
+    let size = stride * height;
+
+    let name = CString::new("background").unwrap();
+
+    let fd = memfd_create(name.as_c_str(), MemfdFlags::CLOEXEC).unwrap();
+
+    ftruncate(&fd, size as u64).unwrap();
+
+    let file: File = fd.into();
+
+    let shm_data = unsafe { MmapMut::map_mut(&file).unwrap() };
+
+    let pool: WlShmPool = shm.create_pool(file.as_fd(), size as i32, qh, ());
+
+    let buffer = pool.create_buffer(
+        0,
+        width as i32,
+        height as i32,
+        (width * 4) as i32,
+        wl_shm::Format::Argb8888,
+        qh,
+        (),
+    );
+
+    pool.destroy();
+    (buffer, shm_data)
 }

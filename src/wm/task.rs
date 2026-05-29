@@ -10,8 +10,7 @@ use std::time::{Duration, Instant};
 
 impl Task {
     pub fn step(&mut self, wm: &mut WindowManager, phase: Phase, queue_tx: Sender<Task>) -> bool {
-        // println!("------");
-        // println!("performing {:?}", self);
+        // println!("------\nperforming {:?}", self);
         match self {
             Task::CloseWindow { window_id } => {
                 if phase == Phase::Manage {
@@ -315,15 +314,12 @@ impl Task {
                     && let Some(background) = output.background.as_mut()
                     && phase == Phase::Render
                 {
-                    println!(
-                        "running InitNewBackground on background: {}",
-                        background.shell_surface.id()
-                    );
-                    // background.draw_solid(0xFFFF00FF);
+                    // TODO: I'm place_bottom()ing more than I need to
                     background.node.place_bottom();
                     background.node.set_position(0, 0);
                     background.render(wm.render_camera_pos);
                     background.sync_commit();
+
                     true
                 } else {
                     false
