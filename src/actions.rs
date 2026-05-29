@@ -22,6 +22,7 @@ pub enum Action {
     NextWindow,
     PrevWindow,
     CycleTiling,
+    ToggleOverview,
     Exit,
 }
 
@@ -81,6 +82,7 @@ pub fn parse_action(keyword: &str) -> Option<Action> {
         "next_window" => Some(Action::NextWindow),
         "prev_window" => Some(Action::PrevWindow),
         "cycle_tiling" => Some(Action::CycleTiling),
+        "toggle_overview" => Some(Action::ToggleOverview),
         "exit" => Some(Action::Exit),
         _ if keyword.starts_with("spawn ") => {
             let rest = &keyword["spawn ".len()..];

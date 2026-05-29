@@ -34,6 +34,7 @@ impl WindowManager {
             render_camera_pos: Position { x: 0, y: 0 },
             rendered_camera_pos: Position { x: 0, y: 0 },
             target_camera_pos: Position { x: 0, y: 0 },
+            camera_offset: Position { x: 0, y: 0 },
 
             ipc: IpcState::new(),
             ipc_tx,
@@ -218,8 +219,8 @@ impl WindowManager {
             let window_render_position_changed = window.render_position != window.rendered_position;
             if window_render_position_changed {
                 window.node.set_position(
-                    window.render_position.x - self.render_camera_pos.x,
-                    window.render_position.y - self.render_camera_pos.y,
+                    window.render_position.x - self.render_camera_pos.x - self.camera_offset.x,
+                    window.render_position.y - self.render_camera_pos.y - self.camera_offset.y,
                 );
 
                 // TODO: refactor?
@@ -229,7 +230,9 @@ impl WindowManager {
                             .send(MainResponse::Geometry {
                                 client_id: *client_id,
                                 window_id: id.to_string(),
-                                pos: window.render_position - self.render_camera_pos,
+                                pos: window.render_position
+                                    - self.render_camera_pos
+                                    - self.camera_offset,
                                 // TODO: fix into window.dim
                                 dim: Dimension {
                                     width: window.width,
@@ -242,8 +245,8 @@ impl WindowManager {
                 window.rendered_position = window.render_position;
             } else if render_camera_pos_changed {
                 window.node.set_position(
-                    window.render_position.x - self.render_camera_pos.x,
-                    window.render_position.y - self.render_camera_pos.y,
+                    window.render_position.x - self.render_camera_pos.x - self.camera_offset.x,
+                    window.render_position.y - self.render_camera_pos.y - self.camera_offset.y,
                 );
 
                 if let Some(client_ids) = self.ipc.watchers.get(id) {
@@ -252,7 +255,9 @@ impl WindowManager {
                             .send(MainResponse::Geometry {
                                 client_id: *client_id,
                                 window_id: id.to_string(),
-                                pos: window.render_position - self.render_camera_pos,
+                                pos: window.render_position
+                                    - self.render_camera_pos
+                                    - self.camera_offset,
                                 // TODO: fix into window.dim
                                 dim: Dimension {
                                     width: window.width,
@@ -440,6 +445,7 @@ impl WindowManager {
         let desktop = &mut self.desktop;
         let windows = &mut self.windows;
         let camera_pos = &mut self.camera_pos;
+        let outputs = &mut self.outputs;
 
         for seat in self.seats.values_mut() {
             if let Some(window_id) = seat.interacted.take() {
@@ -478,7 +484,7 @@ impl WindowManager {
                 }
             }
 
-            seat.do_action(desktop, windows, &self.outputs, wm_proxy, camera_pos);
+            seat.do_action(desktop, windows, outputs, wm_proxy, camera_pos);
         }
     }
 }

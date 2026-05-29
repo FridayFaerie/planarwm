@@ -18,6 +18,7 @@ use crate::wm::desktop::Desktop;
 use crate::wm::task::Task;
 use crate::wm::utils::Position;
 use crate::wm::window::WindowLocation;
+use serde::de::value::BoolDeserializer;
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
@@ -79,6 +80,7 @@ pub struct WindowManager {
     pub render_camera_pos: Position,
     pub rendered_camera_pos: Position,
     pub target_camera_pos: Position,
+    pub camera_offset: Position,
 
     pub ipc: IpcState,
     ipc_tx: Sender<MainResponse>,
@@ -125,6 +127,8 @@ pub struct Output {
     pub position: Option<(i32, i32)>,
     pub dimensions: Option<(i32, i32)>,
     pub background: Option<Background>,
+
+    pub overview_active: bool,
 }
 
 #[derive(Debug)]

@@ -74,7 +74,7 @@ impl Seat {
         &mut self,
         desktop: &mut Desktop,
         windows: &mut HashMap<ObjectId, Window>,
-        outputs: &HashMap<ObjectId, Output>,
+        outputs: &mut HashMap<ObjectId, Output>,
         wm_proxy: &RiverWindowManagerV1,
         camera_pos: &mut Position,
     ) {
@@ -218,6 +218,31 @@ impl Seat {
                     .active_workspace_mut()
                     .active_slide_mut()
                     .cycle_tiling();
+            }
+            Action::ToggleOverview => {
+                if let Some(output) = outputs.values_mut().last()
+                    && let Some((w, h)) = output.dimensions
+                {
+                    if !output.overview_active {
+                        spawn_shell("wlr-randr --output eDP-1 --scale 1");
+                        self.queue_tx
+                            .send(Task::SetCameraOffset {
+                                pos: Position {
+                                    x: -w / 4,
+                                    y: -h / 4,
+                                },
+                            })
+                            .expect("couldn't send setcameraoffset");
+                    } else {
+                        spawn_shell("wlr-randr --output eDP-1 --scale 1.5");
+                        self.queue_tx
+                            .send(Task::SetCameraOffset {
+                                pos: Position { x: 0, y: 0 },
+                            })
+                            .expect("couldn't send setcameraoffset");
+                    }
+                    output.overview_active = !output.overview_active;
+                }
             }
             Action::Exit => wm_proxy.exit_session(),
         }

@@ -11,6 +11,7 @@ impl Output {
             position: None,
             dimensions: None,
             background: None,
+            overview_active: false,
         }
     }
 }

@@ -163,6 +163,12 @@ impl Task {
                 }
                 true
             }
+            Task::SetCameraOffset { pos } => {
+                wm.camera_offset = *pos;
+                // TODO: this is a nasty hack..
+                wm.rendered_camera_pos = Position { x: -1, y: -1 };
+                true
+            }
             Task::SetCamera { pos, timer } => {
                 let diff_pos = *pos - wm.target_camera_pos;
                 // TODO: allow it to be configurable?
@@ -241,17 +247,23 @@ impl Task {
                 true
             }
             Task::InitNewOutput { id } => {
-                if let Some(output) = wm.outputs.get_mut(id) {
-                    if let Some(layer_shell_output) = output.layer.as_mut() {
-                        layer_shell_output.set_default();
-                    }
-                    if let Some(background) = output.background.as_mut() {
-                        background.node.place_bottom();
-                        background.node.set_position(0, 0);
-                        // background.draw_solid(0xFFFF00FF);
-                        background.render(Position { x: 0, y: 0 });
-                        background.sync_commit();
-                    }
+                if let Some(output) = wm.outputs.get_mut(id)
+                    && let Some(layer_shell_output) = output.layer.as_mut()
+                {
+                    layer_shell_output.set_default();
+                }
+                true
+            }
+            Task::InitNewBackground { id } => {
+                if let Some(output) = wm.outputs.get_mut(id)
+                    && let Some(background) = output.background.as_mut()
+                {
+                    background.node.place_bottom();
+                    background.node.set_position(0, 0);
+                    // background.draw_solid(0xFFFF00FF);
+                    background.render(Position { x: 0, y: 0 });
+                    background.sync_commit();
+                    println!("managed to init new background!")
                 }
                 true
             }
@@ -298,6 +310,9 @@ pub enum Task {
         pos: Position,
         timer: Instant,
     },
+    SetCameraOffset {
+        pos: Position,
+    },
     MoveCamera {
         diff_pos: Position,
         timer: Instant,
@@ -317,6 +332,9 @@ pub enum Task {
         app_id: String,
     },
     InitNewOutput {
+        id: ObjectId,
+    },
+    InitNewBackground {
         id: ObjectId,
     },
 }

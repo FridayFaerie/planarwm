@@ -205,6 +205,11 @@ impl Dispatch<RiverWindowManagerV1, ()> for AppData {
                     .queue_tx
                     .send(Task::InitNewOutput { id: id.id() })
                     .expect("couldn't send initnewoutput");
+                state
+                    .wm
+                    .queue_tx
+                    .send(Task::InitNewBackground { id: id.id() })
+                    .expect("couldn't send initnewbackground");
             }
             Event::Seat { id } => {
                 let mut seat = Seat::new(id.clone(), state.wm.queue_tx.clone());
@@ -329,7 +334,7 @@ impl Dispatch<RiverOutputV1, ()> for AppData {
         event: <RiverOutputV1 as Proxy>::Event,
         _data: &(),
         _conn: &Connection,
-        _qh: &QueueHandle<Self>,
+        qh: &QueueHandle<Self>,
     ) {
         use river::river_output_v1::Event;
         let output = state
@@ -342,12 +347,46 @@ impl Dispatch<RiverOutputV1, ()> for AppData {
             Event::WlOutput { name: _ } => {}
             Event::Position { x, y } => output.position = Some((x, y)),
             Event::Dimensions { width, height } => {
-                output.dimensions = Some((width, height));
-                for workspace in state.wm.desktop.workspaces.values_mut() {
-                    workspace.dimensions = (width, height);
-                    for slide in workspace.slides.iter_mut() {
-                        slide.dimensions = (width, height);
+                if let Some(background) = &mut output.background {
+                    background.node.destroy();
+                    background.shell_surface.destroy();
+                    background.wl_surface.destroy();
+                }
+                if let Some(compositor) = state.compositor.as_mut()
+                    && let Some(river_wm) = state.river_wm.as_mut()
+                    && let Some(shm) = state.shm.as_mut()
+                    && !state.config.window.wallpaper_path.is_empty()
+                {
+                    output.background = Some(Background::new(
+                        compositor,
+                        shm,
+                        river_wm,
+                        qh,
+                        width as u32,
+                        height as u32,
+                        // TODO: add some nicer checking?
+                        state.config.window.wallpaper_path.clone(),
+                    ));
+
+                    state
+                        .wm
+                        .queue_tx
+                        .send(Task::InitNewBackground {
+                            id: output.proxy.id(),
+                        })
+                        .expect("couldn't send initnewbackground");
+                }
+                if !output.overview_active {
+                    println!("changing output dimensions");
+                    output.dimensions = Some((width, height));
+                    for workspace in state.wm.desktop.workspaces.values_mut() {
+                        workspace.dimensions = (width, height);
+                        for slide in workspace.slides.iter_mut() {
+                            slide.dimensions = (width, height);
+                        }
                     }
+                } else {
+                    println!("not changing output dimensions - overview is active!")
                 }
             }
         }
