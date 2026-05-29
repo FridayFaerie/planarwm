@@ -36,8 +36,6 @@ pub struct Background {
     pub shm_data: MmapMut,
 
     wallpaper: Wallpaper,
-    offset_x: i32,
-    offset_y: i32,
 }
 
 #[derive(Debug)]
@@ -98,9 +96,6 @@ impl Background {
             height,
             shm_data,
             wallpaper,
-
-            offset_x: 0,
-            offset_y: 0,
         }
     }
 

@@ -184,6 +184,7 @@ impl Dispatch<RiverWindowManagerV1, ()> for AppData {
                 if let Some(compositor) = state.compositor.as_mut()
                     && let Some(river_wm) = state.river_wm.as_mut()
                     && let Some(shm) = state.shm.as_mut()
+                    && !state.config.window.wallpaper_path.is_empty()
                 {
                     output.background = Some(Background::new(
                         compositor,
@@ -194,8 +195,8 @@ impl Dispatch<RiverWindowManagerV1, ()> for AppData {
                         // dimensions event
                         output.dimensions.unwrap_or((1280, 720)).0 as u32,
                         output.dimensions.unwrap_or((1280, 720)).1 as u32,
-                        "/home/friday/.config/walls/tiledsmallskull.jpg",
-                        // "/home/friday/.config/walls/istockphoto-1210551064-612x612.jpg",
+                        // TODO: add some nicer checking?
+                        state.config.window.wallpaper_path.clone(),
                     ));
                 }
                 state.wm.outputs.insert(id.id(), output);

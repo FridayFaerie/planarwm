@@ -16,6 +16,8 @@ pub struct Config {
 pub struct WindowConfig {
     #[serde(default)]
     pub force_ssd: bool,
+    #[serde(default)]
+    pub wallpaper_path: String,
 }
 
 fn config_path() -> PathBuf {

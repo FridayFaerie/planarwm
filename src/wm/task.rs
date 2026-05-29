@@ -246,7 +246,6 @@ impl Task {
                         layer_shell_output.set_default();
                     }
                     if let Some(background) = output.background.as_mut() {
-                        println!("planarwm: initiating background");
                         background.node.place_bottom();
                         background.node.set_position(0, 0);
                         // background.draw_solid(0xFFFF00FF);
