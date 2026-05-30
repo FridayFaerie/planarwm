@@ -51,7 +51,7 @@ pub enum MainRequest {
     Focus {
         client_id: ClientId,
         request_id: u64,
-        app_id: String,
+        window_id: String,
     },
     Disconnected {
         client_id: ClientId,
@@ -93,7 +93,7 @@ enum SocketRequest {
     TrackCamera { request_id: u64 },
     Watch { request_id: u64, app_name: String },
     Unwatch { request_id: u64, window_id: String },
-    Focus { request_id: u64, app_id: String },
+    Focus { request_id: u64, window_id: String },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -245,13 +245,14 @@ fn read_clients(
                                         request_id,
                                         window_id,
                                     },
-                                    SocketRequest::Focus { request_id, app_id } => {
-                                        MainRequest::Focus {
-                                            client_id,
-                                            request_id,
-                                            app_id,
-                                        }
-                                    }
+                                    SocketRequest::Focus {
+                                        request_id,
+                                        window_id,
+                                    } => MainRequest::Focus {
+                                        client_id,
+                                        request_id,
+                                        window_id,
+                                    },
                                 };
 
                                 let _ = to_main.send(msg);

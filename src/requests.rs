@@ -133,7 +133,7 @@ pub fn drain_main_requests(
             MainRequest::Focus {
                 client_id,
                 request_id,
-                app_id,
+                window_id,
             } => {
                 if let Some(proxy) = state.river_wm.as_ref() {
                     proxy.manage_dirty();
@@ -141,7 +141,7 @@ pub fn drain_main_requests(
                     eprintln!("couldn't send manage dirty request!");
                 }
 
-                let result = state.wm.queue_tx.send(Task::FocusWindow { app_id });
+                let result = state.wm.queue_tx.send(Task::FocusWindow { window_id });
 
                 let response = response_from_result(client_id, request_id, result);
                 state.ipc_tx.send(response)?;

@@ -242,8 +242,40 @@ impl Task {
                 eprintln!("TODO: implement WatchRequest");
                 true
             }
-            Task::FocusWindow { .. } => {
-                eprintln!("TODO: implement FocusWindow");
+            Task::FocusWindow { window_id } => {
+                if let Some((_, window)) = wm
+                    .windows
+                    .iter_mut()
+                    .find(|(id, _)| id.to_string() == *window_id)
+                    && let Some(loc) = &window.location
+                    && let Some(workspace) = wm.desktop.workspaces.get_mut(&loc.workspace_id)
+                {
+                    workspace.active_slide = workspace
+                        .slides
+                        .iter()
+                        .position(|s| s.id == loc.slide_id)
+                        .expect("slide is not in the workspace the window says it is!");
+                    workspace.rearrange();
+                    let position = workspace.slides[workspace.active_slide].position;
+                    queue_tx
+                        .send(Task::SetCamera {
+                            pos: position,
+                            timer: Instant::now(),
+                        })
+                        .expect("couldn't send prevslide's setcamera");
+                    if let Some(slide) = workspace.slides.iter_mut().find(|s| s.id == loc.slide_id)
+                    {
+                        slide.active_window = slide
+                            .windows
+                            .iter()
+                            .position(|id| id.to_string() == *window_id)
+                            .expect("window not in slide it says it is!");
+                        slide.rearrange();
+                        for seat in wm.seats.values_mut() {
+                            seat.focus_window(&slide.windows[slide.active_window], &mut wm.windows)
+                        }
+                    }
+                }
                 true
             }
             Task::InitNewOutput { id } => {
@@ -329,7 +361,7 @@ pub enum Task {
         client_id: ClientId,
     },
     FocusWindow {
-        app_id: String,
+        window_id: String,
     },
     InitNewOutput {
         id: ObjectId,
