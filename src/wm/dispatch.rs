@@ -181,35 +181,12 @@ impl Dispatch<RiverWindowManagerV1, ()> for AppData {
                     output.layer =
                         Some(layer_shell.get_output(&output.proxy, qh, output.proxy.id()));
                 }
-                if let Some(compositor) = state.compositor.as_mut()
-                    && let Some(river_wm) = state.river_wm.as_mut()
-                    && let Some(shm) = state.shm.as_mut()
-                    && !state.config.window.wallpaper_path.is_empty()
-                {
-                    output.background = Some(Background::new(
-                        compositor,
-                        shm,
-                        river_wm,
-                        qh,
-                        // TODO: change this to like 1,1 or something, and wait for the output's
-                        // dimensions event
-                        output.dimensions.unwrap_or((1280, 720)).0 as u32,
-                        output.dimensions.unwrap_or((1280, 720)).1 as u32,
-                        // TODO: add some nicer checking?
-                        state.config.window.wallpaper_path.clone(),
-                    ));
-                }
                 state.wm.outputs.insert(id.id(), output);
                 state
                     .wm
                     .queue_tx
                     .send(Task::InitNewOutput { id: id.id() })
                     .expect("couldn't send initnewoutput");
-                state
-                    .wm
-                    .queue_tx
-                    .send(Task::InitNewBackground { id: id.id() })
-                    .expect("couldn't send initnewbackground");
             }
             Event::Seat { id } => {
                 let mut seat = Seat::new(id.clone(), state.wm.queue_tx.clone());

@@ -99,7 +99,7 @@ impl Background {
         }
     }
 
-    pub fn _draw_solid(&mut self, color: u32) {
+    pub fn draw_solid(&mut self, color: u32) {
         let pixels = self.width * self.height;
         let bytes = color.to_ne_bytes();
 

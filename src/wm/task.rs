@@ -258,12 +258,12 @@ impl Task {
                 if let Some(output) = wm.outputs.get_mut(id)
                     && let Some(background) = output.background.as_mut()
                 {
+                    // background.draw_solid(0xFFFF00FF);
+                    background.render(wm.render_camera_pos);
+                    background.sync_commit();
                     background.node.place_bottom();
                     background.node.set_position(0, 0);
-                    // background.draw_solid(0xFFFF00FF);
-                    background.render(Position { x: 0, y: 0 });
-                    background.sync_commit();
-                    println!("managed to init new background!")
+                    println!("managed to init new background!");
                 }
                 true
             }
