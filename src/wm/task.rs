@@ -1,4 +1,5 @@
 use wayland_backend::client::ObjectId;
+use wayland_client::Proxy;
 
 use crate::WindowManager;
 use crate::ipc::ClientId;
@@ -289,15 +290,21 @@ impl Task {
             Task::InitNewBackground { id } => {
                 if let Some(output) = wm.outputs.get_mut(id)
                     && let Some(background) = output.background.as_mut()
+                    && phase == Phase::Render
                 {
+                    println!(
+                        "running InitNewBackground on background: {}",
+                        background.shell_surface.id()
+                    );
                     // background.draw_solid(0xFFFF00FF);
-                    background.render(wm.render_camera_pos);
-                    background.sync_commit();
                     background.node.place_bottom();
                     background.node.set_position(0, 0);
-                    println!("managed to init new background!");
+                    background.render(wm.render_camera_pos);
+                    background.sync_commit();
+                    true
+                } else {
+                    false
                 }
-                true
             }
         }
     }

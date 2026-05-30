@@ -33,6 +33,7 @@ impl Seat {
             pointer_bindings: HashMap::new(),
             pending_action: Action::None,
             op: SeatOp::None,
+            pointer_position: Position { x: 0, y: 0 },
             op_diff: Position { x: 0, y: 0 },
             op_release: false,
             layer: None,
@@ -225,6 +226,7 @@ impl Seat {
                 {
                     if !output.overview_active {
                         spawn_shell("wlr-randr --output eDP-1 --scale 1");
+                        spawn_shell("wlr-randr --output DP-1 --scale 0.6666666");
                         self.queue_tx
                             .send(Task::SetCameraOffset {
                                 pos: Position {
@@ -235,6 +237,7 @@ impl Seat {
                             .expect("couldn't send setcameraoffset");
                     } else {
                         spawn_shell("wlr-randr --output eDP-1 --scale 1.5");
+                        spawn_shell("wlr-randr --output DP-1 --scale 1");
                         self.queue_tx
                             .send(Task::SetCameraOffset {
                                 pos: Position { x: 0, y: 0 },

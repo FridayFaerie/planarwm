@@ -3,7 +3,7 @@ use memmap2::MmapMut;
 use rustix::fs::{MemfdFlags, ftruncate, memfd_create};
 use std::{ffi::CString, fs::File, os::fd::AsFd, path::Path};
 use wayland_client::{
-    Connection, Dispatch, QueueHandle,
+    Connection, Dispatch, Proxy, QueueHandle,
     protocol::{
         wl_buffer::{self, WlBuffer},
         wl_compositor::WlCompositor,
@@ -28,7 +28,7 @@ pub struct Background {
     pub shell_surface: RiverShellSurfaceV1,
     pub node: RiverNodeV1,
 
-    buffer: WlBuffer,
+    pub buffer: WlBuffer,
 
     width: u32,
     height: u32,
@@ -58,6 +58,12 @@ impl Background {
         let wl_surface = compositor.create_surface(qh, ());
         let shell_surface = river_wm.get_shell_surface(&wl_surface, qh, ());
         let node = shell_surface.get_node(qh, ());
+        println!(
+            "new objects have the following id: \n{}\n{}\n{}",
+            wl_surface.id(),
+            shell_surface.id(),
+            node.id()
+        );
 
         let size = width * height * 4;
 
@@ -135,9 +141,9 @@ impl Background {
         self.commit();
     }
 
-    // TODO: literally no clue what this does, look at this someday
     pub fn render(&mut self, camera_pos: Position) {
-        let dst: &mut [u32] = bytemuck::cast_slice_mut(&mut self.shm_data);
+        let dst: &mut [u32] = cast_slice_mut(&mut self.shm_data);
+        // println!("{:#x}", dst[0]);
 
         let src = &self.wallpaper.pixels;
 

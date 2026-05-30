@@ -324,16 +324,21 @@ impl Dispatch<RiverOutputV1, ()> for AppData {
             Event::WlOutput { name: _ } => {}
             Event::Position { x, y } => output.position = Some((x, y)),
             Event::Dimensions { width, height } => {
+                println!("dimensions event received");
                 if let Some(background) = &mut output.background {
+                    println!("destroying old node, shell_surface, wl_surface");
+                    // TODO: consolidate into background.destroy()
                     background.node.destroy();
                     background.shell_surface.destroy();
                     background.wl_surface.destroy();
+                    background.buffer.destroy();
                 }
                 if let Some(compositor) = state.compositor.as_mut()
                     && let Some(river_wm) = state.river_wm.as_mut()
                     && let Some(shm) = state.shm.as_mut()
                     && !state.config.window.wallpaper_path.is_empty()
                 {
+                    println!("creating new background");
                     output.background = Some(Background::new(
                         compositor,
                         shm,
@@ -354,7 +359,6 @@ impl Dispatch<RiverOutputV1, ()> for AppData {
                         .expect("couldn't send initnewbackground");
                 }
                 if !output.overview_active {
-                    println!("changing output dimensions");
                     output.dimensions = Some((width, height));
                     for workspace in state.wm.desktop.workspaces.values_mut() {
                         workspace.dimensions = (width, height);
@@ -362,8 +366,6 @@ impl Dispatch<RiverOutputV1, ()> for AppData {
                             slide.dimensions = (width, height);
                         }
                     }
-                } else {
-                    println!("not changing output dimensions - overview is active!")
                 }
             }
         }
@@ -396,7 +398,7 @@ impl Dispatch<RiverSeatV1, ()> for AppData {
             } => {}
             Event::OpDelta { dx, dy } => seat.op_diff = Position { x: dx, y: dy },
             Event::OpRelease => seat.op_release = true,
-            Event::PointerPosition { x: _, y: _ } => {}
+            Event::PointerPosition { x, y } => seat.pointer_position = Position { x, y },
         }
     }
 }

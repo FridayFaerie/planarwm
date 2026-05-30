@@ -144,6 +144,7 @@ pub struct Seat {
     pub pointer_bindings: HashMap<ObjectId, PointerBinding>,
     pub pending_action: Action,
     pub op: SeatOp,
+    pub pointer_position: Position,
     pub op_diff: Position,
     pub op_release: bool,
     pub layer: Option<RiverLayerShellSeatV1>,
