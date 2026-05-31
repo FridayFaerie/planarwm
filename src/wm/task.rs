@@ -208,6 +208,29 @@ impl Task {
                 wm.render_camera_pos += partial_diff_pos;
                 false
             }
+            Task::SetPointer { pos } => {
+                for seat in wm.seats.values_mut() {
+                    let old_pos = seat.pointer_position;
+                    let pos_diff = *pos - old_pos;
+
+                    // TODO: THIS IS HORRRRRRIBLE
+                    if pos_diff.x.abs() + pos_diff.y.abs() < 100 {
+                        return true;
+                    }
+
+                    seat.proxy.pointer_warp(pos.x, pos.y);
+                    if let SeatOp::Pan {
+                        start_camera_pos: old_start,
+                    } = seat.op
+                    {
+                        seat.op = SeatOp::Pan {
+                            start_camera_pos: old_start + pos_diff * 2.0,
+                        };
+                        seat.op_diff = pos_diff;
+                    }
+                }
+                true
+            }
             // TODO: maybe remove this?
             // Task::FocusActive {} => {
             //     let slide = wm.desktop.active_workspace_mut().active_slide_mut();
@@ -356,6 +379,9 @@ pub enum Task {
         diff_pos: Position,
         timer: Instant,
         duration: Duration,
+    },
+    SetPointer {
+        pos: Position,
     },
     // FocusActive {},
 

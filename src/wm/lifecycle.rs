@@ -126,10 +126,47 @@ impl WindowManager {
         for seat in self.seats.values_mut() {
             match &seat.op {
                 SeatOp::None => {}
-                SeatOp::Pan { start_camera_pos} => {
-                    // TODO: why isn't this auto-formatting?
-                    self.camera_pos =  *start_camera_pos - seat.op_diff * 2.0;
-                    self.target_camera_pos = self.camera_pos;
+                SeatOp::Pan { start_camera_pos } => { 
+                    if let Some(output) = self.outputs.values().last() && let Some(dimensions) = output.dimensions{
+                        let margin = 2;
+                        let width = dimensions.0;
+                        let height = dimensions.1;
+                        let mut x = seat.pointer_position.x;
+                        let mut y = seat.pointer_position.y;
+                        let mut warp_required = false;
+
+                        if x > width - margin {
+                            x = margin;
+                            warp_required = true;
+                        } else if x < margin { 
+                            x = width - margin;
+                            warp_required = true;
+                        }
+
+                        if y > height - margin {
+                            y = margin;
+                            warp_required = true;
+                        } else if y < margin { 
+                            y = height - margin;
+                            warp_required = true;
+                        }
+
+                        if warp_required {
+                            self.queue_tx
+                                .send(Task::SetPointer {
+                                    pos: Position { x, y }
+                                })
+                                .expect("can't send setpointer");
+                        } else {
+
+                            // TODO: why isn't this auto-formatting?
+                            // TODO: this pretends there are no other tasks that change camera position
+                            // running :)
+                            self.camera_pos =  *start_camera_pos - seat.op_diff * 2.0;
+                            self.target_camera_pos = self.camera_pos;
+                            self.render_camera_pos = self.camera_pos;
+                        }
+                    }
                 }
                 SeatOp::Move {
                     // window_proxy,
