@@ -93,7 +93,9 @@ impl Slide {
             self.slide_type = SlideType::Master;
             self.rearrange();
         } else if self.slide_type == SlideType::Master {
-            self.slide_type = SlideType::Floating;
+            self.outer_gaps = 20;
+            self.inner_gaps = 10;
+            self.slide_type = SlideType::VerticalScroll;
             self.rearrange();
         } else if self.slide_type == SlideType::Floating {
             self.outer_gaps = 20;
