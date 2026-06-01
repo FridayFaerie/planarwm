@@ -317,7 +317,7 @@ impl Task {
                     // TODO: I'm place_bottom()ing more than I need to
                     background.node.place_bottom();
                     background.node.set_position(0, 0);
-                    background.render(wm.render_camera_pos);
+                    background.render(wm.render_camera_pos + wm.camera_offset);
                     background.sync_commit();
 
                     true

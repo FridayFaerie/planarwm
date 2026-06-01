@@ -241,7 +241,7 @@ impl WindowManager {
             }
             for output in self.outputs.values_mut() {
                 if let Some(background) = output.background.as_mut() {
-                    background.render(self.render_camera_pos);
+                    background.render(self.render_camera_pos + self.camera_offset);
                     background.sync_commit();
                 }
             }

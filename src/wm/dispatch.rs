@@ -358,8 +358,8 @@ impl Dispatch<RiverOutputV1, ()> for AppData {
                         })
                         .expect("couldn't send initnewbackground");
                 }
+                output.dimensions = Some((width, height));
                 if !output.overview_active {
-                    output.dimensions = Some((width, height));
                     for workspace in state.wm.desktop.workspaces.values_mut() {
                         workspace.dimensions = (width, height);
                         for slide in workspace.slides.iter_mut() {
