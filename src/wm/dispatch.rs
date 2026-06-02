@@ -245,18 +245,18 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
                 window.width = width;
                 window.height = height;
                 // TODO: remove this if not needed?
-                let location = window.location.as_ref().unwrap();
-                state
-                    .wm
-                    .desktop
-                    .workspaces
-                    .get_mut(&location.workspace_id)
-                    .unwrap()
-                    .slides
-                    .iter_mut()
-                    .find(|s| s.id == location.slide_id)
-                    .unwrap()
-                    .rearrange();
+                // let location = window.location.as_ref().unwrap();
+                // state
+                //     .wm
+                //     .desktop
+                //     .workspaces
+                //     .get_mut(&location.workspace_id)
+                //     .unwrap()
+                //     .slides
+                //     .iter_mut()
+                //     .find(|s| s.id == location.slide_id)
+                //     .unwrap()
+                //     .rearrange();
             }
             Event::AppId { app_id } => {
                 if let Some(id) = app_id {
