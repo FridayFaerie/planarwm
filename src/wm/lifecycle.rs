@@ -322,6 +322,13 @@ impl WindowManager {
                 if let Some(layer) = output.layer.take() {
                     layer.destroy();
                 }
+                if let Some(background) = &mut output.background {
+                    background.shm.release();
+                    background.buffer.destroy();
+                    background.node.destroy();
+                    background.shell_surface.destroy();
+                    background.wl_surface.destroy();
+                }
                 output.proxy.destroy();
                 return false;
             }
