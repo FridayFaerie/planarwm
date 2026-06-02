@@ -33,15 +33,34 @@ impl Task {
                             workspace.slides.iter_mut().find(|s| s.id == loc.slide_id)
                     {
                         slide.windows.remove(slide.active_window);
-                        slide.rearrange();
                         if !slide.windows.is_empty() {
+                            slide.rearrange();
                             for seat in wm.seats.values_mut() {
                                 seat.focus_window(
                                     &slide.windows[slide.active_window],
                                     &mut wm.windows,
                                 )
                             }
-                        };
+                        } else if let Some(slide_pos) = workspace
+                            .slides
+                            .iter_mut()
+                            .position(|s| s.id == loc.slide_id)
+                        {
+                            workspace.slides.remove(slide_pos);
+                            if workspace.active_slide == workspace.slides.len()
+                                && workspace.active_slide != 0
+                            {
+                                workspace.active_slide -= 1;
+                                let position = workspace.slides[workspace.active_slide].position;
+                                queue_tx
+                                    .send(Task::SetCamera {
+                                        pos: position,
+                                        timer: Instant::now(),
+                                    })
+                                    .expect("couldn't send setcamera");
+                            }
+                            workspace.rearrange();
+                        }
                     }
                     wm.windows[window_id].proxy.close();
                     wm.windows.remove(window_id);
