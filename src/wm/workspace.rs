@@ -70,6 +70,10 @@ impl Workspace {
             .get_mut(self.active_slide)
             .unwrap_or_else(|| panic!("can't find active slide!!"));
 
+        if active_slide.windows.is_empty() {
+            return;
+        }
+
         let window_id = active_slide.windows.remove(active_slide.active_window);
         active_slide.rearrange();
 
@@ -91,6 +95,11 @@ impl Workspace {
             .slides
             .get_mut(self.active_slide)
             .unwrap_or_else(|| panic!("can't find active slide!!"));
+
+        if active_slide.windows.is_empty() {
+            return;
+        }
+
         let window_id = active_slide.windows.remove(active_slide.active_window);
         active_slide.rearrange();
 
