@@ -45,6 +45,7 @@ pub struct Wallpaper {
     pixels: Vec<u32>,
 }
 
+// TODO: cleanup the vibe
 impl Background {
     pub fn new(
         compositor: &WlCompositor,

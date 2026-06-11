@@ -49,6 +49,7 @@ struct AppData {
     ipc_tx: Sender<MainResponse>,
 }
 
+// TODO: cleanup the vibe
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Queue up a get_registry event.
     let conn = Connection::connect_to_env()?;

@@ -7,6 +7,7 @@ use crate::{
 };
 use std::{collections::HashMap, fmt::Display};
 
+// TODO: cleanup the vibe
 fn response_from_result<E: Display>(
     client_id: ClientId,
     request_id: u64,

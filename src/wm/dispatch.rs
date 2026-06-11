@@ -453,12 +453,15 @@ impl Dispatch<RiverLayerShellSeatV1, ObjectId> for AppData {
             .expect("Seat {proxy.id()} not found");
         match event {
             Event::FocusExclusive => {
+                println!("layer: exclusive");
                 seat.layer_focus = LayerFocus::Exclusive;
             }
             Event::FocusNonExclusive => {
+                println!("layer: nonexclusive");
                 seat.layer_focus = LayerFocus::NonExclusive;
             }
             Event::FocusNone => {
+                println!("layer: none");
                 seat.layer_focus = LayerFocus::None;
             }
         }
