@@ -462,7 +462,9 @@ impl Dispatch<RiverLayerShellSeatV1, ObjectId> for AppData {
                 seat.layer_focus = LayerFocus::None;
                 let workspace = state.wm.desktop.active_workspace_mut();
                 let slide = workspace.active_slide_mut();
-                seat.focus_window(&slide.windows[slide.active_window], &mut state.wm.windows);
+                if !slide.windows.is_empty() {
+                    seat.focus_window(&slide.windows[slide.active_window], &mut state.wm.windows);
+                }
             }
         }
     }

@@ -31,8 +31,10 @@ impl Task {
                         && let Some(workspace) = wm.desktop.workspaces.get_mut(&loc.workspace_id)
                         && let Some(slide) =
                             workspace.slides.iter_mut().find(|s| s.id == loc.slide_id)
+                        && let Some(window_index) =
+                            slide.windows.iter_mut().position(|w| w == window_id)
                     {
-                        slide.windows.remove(slide.active_window);
+                        slide.windows.remove(window_index);
                         if !slide.windows.is_empty() {
                             slide.rearrange();
                             for seat in wm.seats.values_mut() {
@@ -62,6 +64,7 @@ impl Task {
                             workspace.rearrange();
                         }
                     }
+                    println!("removing windows' window_id: {}", window_id.to_string());
                     wm.windows[window_id].proxy.close();
                     wm.windows.remove(window_id);
                     return true;
