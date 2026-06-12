@@ -453,16 +453,16 @@ impl Dispatch<RiverLayerShellSeatV1, ObjectId> for AppData {
             .expect("Seat {proxy.id()} not found");
         match event {
             Event::FocusExclusive => {
-                println!("layer: exclusive");
                 seat.layer_focus = LayerFocus::Exclusive;
             }
             Event::FocusNonExclusive => {
-                println!("layer: nonexclusive");
                 seat.layer_focus = LayerFocus::NonExclusive;
             }
             Event::FocusNone => {
-                println!("layer: none");
                 seat.layer_focus = LayerFocus::None;
+                let workspace = state.wm.desktop.active_workspace_mut();
+                let slide = workspace.active_slide_mut();
+                seat.focus_window(&slide.windows[slide.active_window], &mut state.wm.windows);
             }
         }
     }
