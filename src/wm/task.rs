@@ -150,6 +150,11 @@ impl Task {
                         let width = dim.width;
                         let height = dim.height;
                         (window.width, window.height) = (width, height);
+                        if width == 0 || height == 0 {
+                            // TODO: fix
+                            eprintln!("width or height tried to be 0! that's wrong");
+                            return false;
+                        }
                         window.proxy.propose_dimensions(width, height);
                     }
                     return true;

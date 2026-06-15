@@ -61,6 +61,12 @@ impl Workspace {
     }
 
     pub fn active_slide_mut(&mut self) -> &mut Slide {
+        if self.slides.is_empty() {
+            let id = self.new_slide_id();
+            self.slides
+                .push(Slide::new(id, self.dimensions, self.queue_tx.clone()));
+            self.rearrange();
+        }
         self.slides.get_mut(self.active_slide).unwrap()
     }
 
