@@ -53,18 +53,26 @@ impl Task {
                                 && workspace.active_slide != 0
                             {
                                 workspace.active_slide -= 1;
-                                let position = workspace.slides[workspace.active_slide].position;
-                                queue_tx
-                                    .send(Task::SetCamera {
-                                        pos: position,
-                                        timer: Instant::now(),
-                                    })
-                                    .expect("couldn't send setcamera");
+                                if let Some(slide) =
+                                    workspace.slides.get_mut(workspace.active_slide)
+                                {
+                                    for seat in wm.seats.values_mut() {
+                                        seat.focus_window(
+                                            &slide.windows[slide.active_window],
+                                            &mut wm.windows,
+                                        )
+                                    }
+                                    queue_tx
+                                        .send(Task::SetCamera {
+                                            pos: slide.position,
+                                            timer: Instant::now(),
+                                        })
+                                        .expect("couldn't send setcamera");
+                                }
                             }
                             workspace.rearrange();
                         }
                     }
-                    println!("removing windows' window_id: {}", window_id.to_string());
                     wm.windows[window_id].proxy.close();
                     wm.windows.remove(window_id);
                     return true;
