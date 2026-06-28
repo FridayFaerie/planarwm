@@ -39,7 +39,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
             version,
         } = event
         {
-            const RIVER_WINDOW_MANAGER_V1_VERSION: u32 = 4;
+            const RIVER_WINDOW_MANAGER_V1_VERSION: u32 = 6;
             const RIVER_XKB_BINDINGS_V1_VERSION: u32 = 1;
             const RIVER_LAYER_SHELL_V1_VERSION: u32 = 1;
             match interface.as_str() {
@@ -88,6 +88,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
                     );
                     state.river_ls = Some(layer_shell);
                 }
+                // TODO: check versions?
                 "river_input_manager_v1" => {
                     state.river_im =
                         Some(registry.bind::<RiverInputManagerV1, _, _>(name, 1, qh, ()));
@@ -300,6 +301,15 @@ impl Dispatch<RiverWindowV1, ()> for AppData {
             Event::UnreliablePid { unreliable_pid: _ } => {}
             Event::PresentationHint { .. } => {}
             Event::Identifier { .. } => {}
+            Event::CaptureSessions { .. } => {}
+            // TODO: forcing .id().to_string() isn't great
+            Event::ActivationRequested => state
+                .wm
+                .queue_tx
+                .send(Task::FocusWindow {
+                    window_id: window.proxy.id().to_string(),
+                })
+                .expect("couldn't send focuswindow"),
         }
     }
 }
@@ -368,6 +378,7 @@ impl Dispatch<RiverOutputV1, ()> for AppData {
                     }
                 }
             }
+            Event::CaptureSessions { .. } => {}
         }
     }
 }
