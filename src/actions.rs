@@ -95,6 +95,7 @@ pub fn parse_action(keyword: &str) -> Option<Action> {
             let command = keyword["shell ".len()..].trim().to_string();
             Some(Action::SpawnShell { command })
         }
+        // TODO: fix this
         _ if keyword.starts_with("view ") => {
             let mut parts = keyword["view ".len()..].split_whitespace();
             let x = parts.next()?.parse().ok()?;

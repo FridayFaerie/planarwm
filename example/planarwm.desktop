@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=planarwm
+Comment=A window manager
+Exec=planarwm
+Type=Application
