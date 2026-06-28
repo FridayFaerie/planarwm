@@ -47,6 +47,7 @@ impl Task {
                             .slides
                             .iter_mut()
                             .position(|s| s.id == loc.slide_id)
+                            && !workspace.slides.is_empty()
                         {
                             workspace.slides.remove(slide_pos);
                             if workspace.active_slide == workspace.slides.len()
