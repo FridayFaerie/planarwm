@@ -9,7 +9,14 @@ SPDX-License-Identifier: 0BSD
 
 ## Installation
 
+
 ### Building
+
+Install dependencies: 
+- [River](https://codeberg.org/river/river)
+- [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
+
+Build:
 ```sh
 cargo build --release
 ```
