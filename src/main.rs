@@ -10,13 +10,12 @@ mod requests;
 mod wm;
 
 use crate::config::{Config, load_config};
-use crate::ipc::{IpcState, MainRequest, MainResponse};
+use crate::ipc::{MainRequest, MainResponse};
 use crate::river::{
     river_input_manager_v1::RiverInputManagerV1, river_layer_shell_v1::RiverLayerShellV1,
     river_libinput_config_v1::RiverLibinputConfigV1, river_window_manager_v1::RiverWindowManagerV1,
     river_xkb_bindings_v1::RiverXkbBindingsV1,
 };
-use crate::wm::task::Task;
 use crate::wm::{Output, Window, WindowManager};
 use nix::poll::{PollFd, PollFlags, PollTimeout, poll};
 use nix::sys::eventfd::{EfdFlags, EventFd};
@@ -24,7 +23,9 @@ use process::spawn_shell;
 use std::fmt::Debug;
 use std::io::Error;
 use std::os::fd::AsFd;
+use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Arc;
 use std::sync::mpsc::{self, Sender};
 use wayland_client::Connection;
@@ -52,7 +53,7 @@ struct AppData {
 // TODO: cleanup the vibe
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Queue up a get_registry event.
-    let conn = Connection::connect_to_env()?;
+    let conn = connect_or_bootstrap()?;
     let display = conn.display();
     let mut event_queue = conn.new_event_queue();
     let _registry = display.get_registry(&event_queue.handle(), ());
@@ -151,6 +152,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if wake_ready {
             let _ = waker.read();
             requests::drain_main_requests(&mut app_data, &to_main_rx)?;
+        }
+    }
+}
+
+fn connect_or_bootstrap() -> Result<Connection, String> {
+    match Connection::connect_to_env() {
+        Ok(conn) => Ok(conn),
+        Err(connect_err) => {
+            if std::env::var_os("PLANARWM_BOOTSTRAPPED").is_some() {
+                return Err(connect_err.to_string());
+            }
+
+            let err = Command::new("river")
+                .arg("-c")
+                .arg("planarwm")
+                .env("PLANARWM_BOOTSTRAPPED", "1")
+                .env_remove("WAYLAND_DISPLAY")
+                .env_remove("WAYLAND_SOCKET")
+                .exec();
+            Err(err.to_string())
         }
     }
 }
