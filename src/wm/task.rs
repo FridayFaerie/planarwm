@@ -12,6 +12,13 @@ impl Task {
     pub fn step(&mut self, wm: &mut WindowManager, phase: Phase, queue_tx: Sender<Task>) -> bool {
         // println!("------\nperforming {:?}", self);
         match self {
+            Task::RequestCloseWindow { window_id } => {
+                if phase == Phase::Manage {
+                    wm.windows[window_id].proxy.close();
+                    return true;
+                }
+                false
+            }
             Task::CloseWindow { window_id } => {
                 if phase == Phase::Manage {
                     for seat in wm.seats.values_mut() {
@@ -373,6 +380,9 @@ pub enum Phase {
 
 #[derive(Debug)]
 pub enum Task {
+    RequestCloseWindow {
+        window_id: ObjectId,
+    },
     CloseWindow {
         window_id: ObjectId,
     },

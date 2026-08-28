@@ -96,7 +96,7 @@ impl Seat {
             Action::Close => {
                 if let Some(window_id) = self.focused.clone() {
                     self.queue_tx
-                        .send(Task::CloseWindow { window_id })
+                        .send(Task::RequestCloseWindow { window_id })
                         .expect("couldn't closewindow");
                 }
             }
