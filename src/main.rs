@@ -20,17 +20,21 @@ use crate::wm::{Output, Window, WindowManager};
 use nix::poll::{PollFd, PollFlags, PollTimeout, poll};
 use nix::sys::eventfd::{EfdFlags, EventFd};
 use process::spawn_shell;
-use std::fmt::Debug;
-use std::io::Error;
-use std::os::fd::AsFd;
-use std::os::unix::process::CommandExt;
-use std::path::PathBuf;
-use std::process::Command;
-use std::sync::Arc;
-use std::sync::mpsc::{self, Sender};
-use wayland_client::Connection;
-use wayland_client::protocol::wl_compositor::WlCompositor;
-use wayland_client::protocol::wl_shm::WlShm;
+use std::{
+    fmt::Debug,
+    io::Error,
+    os::{fd::AsFd, unix::process::CommandExt},
+    path::PathBuf,
+    process::Command,
+    sync::{
+        Arc,
+        mpsc::{self, Sender},
+    },
+};
+use wayland_client::{
+    Connection,
+    protocol::{wl_compositor::WlCompositor, wl_shm::WlShm},
+};
 
 pub use protocol::river;
 
