@@ -1,0 +1,8 @@
+# Place this in ~/.config/systemd/user/planarwm-session.target
+
+[Unit]
+Description=planarwm graphical session
+
+Wants=graphical-session-pre.target
+After=graphical-session-pre.target
+BindsTo=graphical-session.target

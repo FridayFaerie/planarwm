@@ -1,3 +1,5 @@
+# Place this in /usr/local/share/wayland-sessions/planarwm.desktop
+
 [Desktop Entry]
 Name=planarwm
 Comment=A window manager

@@ -31,6 +31,9 @@ cp ./example/planarwm.conf ~/.config/river/
 
 # Set up planarwm to be visible in display managers
 sudo cp ./example/planarwm.desktop /usr/local/share/wayland-sessions/
+
+# Possibly optional, depending on distro: create a planarwm-session.target
+cp ./example/planarwm-session.target ~/.config/systemd/user/planarwm-session.target
 ```
 
 ## Running
