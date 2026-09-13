@@ -460,6 +460,9 @@ impl WindowManager {
                 seat.create_pointer_binding(qh, Modifiers::None, BTN_MIDDLE, Action::Pan);
             }
 
+            // seat.set_cursor_theme("breeze_cursors".to_string(), 24);
+            seat.set_cursor_theme("Bibata-Modern-Ice".to_string(), 24);
+
             seat.new = false;
         }
     }

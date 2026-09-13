@@ -70,6 +70,10 @@ impl Seat {
         self.pointer_bindings.insert(binding.proxy.id(), binding);
     }
 
+    pub fn set_cursor_theme(&mut self, name: String, size: u32) {
+        self.proxy.set_xcursor_theme(name, size);
+    }
+
     // NOTE: this is the stuff that happens on keybinding
     pub fn do_action(
         &mut self,
