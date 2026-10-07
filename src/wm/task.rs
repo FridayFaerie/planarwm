@@ -1,12 +1,10 @@
-use wayland_backend::client::ObjectId;
-use wayland_client::Proxy;
-
 use crate::WindowManager;
 use crate::ipc::ClientId;
 use crate::wm::SeatOp;
 use crate::wm::utils::{Dimension, Position};
 use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
+use wayland_backend::client::ObjectId;
 
 impl Task {
     pub fn step(&mut self, wm: &mut WindowManager, phase: Phase, queue_tx: Sender<Task>) -> bool {
@@ -43,6 +41,7 @@ impl Task {
                     {
                         slide.windows.remove(window_index);
                         if !slide.windows.is_empty() {
+                            // TODO: send window to top somehow
                             slide.rearrange();
                             for seat in wm.seats.values_mut() {
                                 seat.focus_window(
@@ -64,6 +63,7 @@ impl Task {
                                 if let Some(slide) =
                                     workspace.slides.get_mut(workspace.active_slide)
                                 {
+                                    // TODO: send window to top somehow
                                     for seat in wm.seats.values_mut() {
                                         seat.focus_window(
                                             &slide.windows[slide.active_window],
@@ -316,6 +316,8 @@ impl Task {
                     && let Some(loc) = &window.location
                     && let Some(workspace) = wm.desktop.workspaces.get_mut(&loc.workspace_id)
                 {
+                    // TODO: maybe someday? gate it under manage phase
+                    // window.node.place_top();
                     workspace.active_slide = workspace
                         .slides
                         .iter()
@@ -355,7 +357,7 @@ impl Task {
             Task::InitNewBackground { id } => {
                 if let Some(output) = wm.outputs.get_mut(id)
                     && let Some(background) = output.background.as_mut()
-                    && phase == Phase::Render
+                    && phase == Phase::Manage
                 {
                     // TODO: I'm place_bottom()ing more than I need to
                     background.node.place_bottom();
@@ -363,6 +365,14 @@ impl Task {
                     background.render(wm.render_camera_pos + wm.camera_offset);
                     background.sync_commit();
 
+                    true
+                } else {
+                    false
+                }
+            }
+            Task::SendWindowTop { window_id } => {
+                if phase == Phase::Manage {
+                    wm.windows[window_id].node.place_top();
                     true
                 } else {
                     false
@@ -380,6 +390,9 @@ pub enum Phase {
 
 #[derive(Debug)]
 pub enum Task {
+    SendWindowTop {
+        window_id: ObjectId,
+    },
     RequestCloseWindow {
         window_id: ObjectId,
     },

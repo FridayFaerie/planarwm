@@ -126,7 +126,7 @@ impl WindowManager {
         for seat in self.seats.values_mut() {
             match &seat.op {
                 SeatOp::None => {}
-                SeatOp::Pan { start_camera_pos } => { 
+                SeatOp::Pan { start_camera_pos } => {
                     if let Some(output) = self.outputs.values().last() && let Some(dimensions) = output.dimensions{
                         let margin = 2;
                         let width = dimensions.0;
@@ -138,7 +138,7 @@ impl WindowManager {
                         if x > width - margin {
                             x = margin;
                             warp_required = true;
-                        } else if x < margin { 
+                        } else if x < margin {
                             x = width - margin;
                             warp_required = true;
                         }
@@ -146,7 +146,7 @@ impl WindowManager {
                         if y > height - margin {
                             y = margin;
                             warp_required = true;
-                        } else if y < margin { 
+                        } else if y < margin {
                             y = height - margin;
                             warp_required = true;
                         }

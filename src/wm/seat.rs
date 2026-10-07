@@ -205,6 +205,11 @@ impl Seat {
                     self.focus_window(&slide.windows[slide.active_window], windows)
                 }
                 slide.rearrange();
+                if let Some(window_id) = self.focused.clone() {
+                    self.queue_tx
+                        .send(Task::SendWindowTop { window_id })
+                        .expect("couldn't send sendwindowtop");
+                }
             }
             Action::NextWindow => {
                 let slide = desktop.active_workspace_mut().active_slide_mut();
@@ -217,6 +222,11 @@ impl Seat {
                     self.focus_window(&slide.windows[slide.active_window], windows)
                 }
                 slide.rearrange();
+                if let Some(window_id) = self.focused.clone() {
+                    self.queue_tx
+                        .send(Task::SendWindowTop { window_id })
+                        .expect("couldn't send sendwindowtop");
+                }
             }
             Action::CycleTiling => {
                 desktop
